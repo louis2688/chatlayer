@@ -44,14 +44,14 @@ create bots, view analytics, manage team + API keys in the dashboard.
 **V2 - SaaS**
 - Auth: email/password + optional Google SSO (better-auth), signed sessions
 - Multiple bots per workspace, each with its own webhook, branding, and limits
-- No message storage: only content-free usage counts are kept (stats, not chat history)
-- Analytics overview (bots, conversations, messages today/total)
+- No message storage: only session metadata is kept (ip, geo, browser), never chat text
+- Analytics: sessions, messages, top browsers and countries, per-bot, recent sessions
 - Public bots (anonymous visitors) vs private bots (require a signed-in user)
 
 **Widget parity (matches n8nchatui.com)**
 - Markdown/HTML rendering in replies (XSS-sanitized), RTL layout, consent screen, custom CSS, file upload (per-bot type/size limits)
 - Message-credit billing (1 credit = 1 message, packages, ledger; Stripe-ready)
-- Analytics page (14-day chart + per-bot), in-app Docs, profile rename, account deletion
+- Analytics page (sessions, 14-day chart, browsers/countries, per-bot), Security page (IP bans), in-app Docs, profile rename, account deletion
 - MCP server at `/api/mcp` so Claude/Cursor can manage bots via a workspace API key
 
 **V3 - agency / enterprise**
@@ -111,6 +111,7 @@ Email + Google sign-ins with the same address link to one account (Google verifi
 - **Authentication** - three modes on the chat route: org-scoped API key (`X-API-Key`) > signed-in better-auth user > anonymous HMAC token bound to one bot (public bots only). Private bots require a user.
 - **Multi-tenant isolation** - bots, usage events, keys, and members are org-scoped; dashboard reads and every server action check org ownership before touching a row.
 - **Rate limiting** - token bucket per session and per IP, per bot, with spoof-resistant IP resolution.
+- **IP ban** - org-scoped IP blocklist enforced at the chat gateway before any work; managed on the Security page or from the analytics session list.
 - **Origin + CORS** - per-bot domain allowlist; `/widget/*` is frameable, everything else is `X-Frame-Options: DENY`.
 - **Input validation** - messages capped at 4000 chars; server actions validated with Zod; upstream calls time out.
 - **SSRF protection** - webhook URLs are blocked from targeting loopback/private/link-local/metadata addresses at save time and (DNS-resolved) at fetch time; redirects are not followed.

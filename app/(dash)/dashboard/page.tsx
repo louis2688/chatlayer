@@ -24,9 +24,9 @@ export default async function DashboardPage() {
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Bots" value={stats.bots} />
-        <Stat label="Conversations" value={stats.conversations} />
-        <Stat label="Messages today" value={stats.messagesToday} />
-        <Stat label="Messages total" value={stats.messagesTotal} />
+        <Stat label="Sessions" value={stats.sessions} />
+        <Stat label="Messages" value={stats.messages} />
+        <Stat label="Countries" value={stats.countries} />
       </div>
 
       <div className="mt-8 flex items-center justify-between">

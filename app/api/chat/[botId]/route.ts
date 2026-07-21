@@ -4,7 +4,8 @@ import { rateLimit } from "@/lib/ratelimit";
 import { verifySession } from "@/lib/token";
 import { getBot, isOrgMember } from "@/lib/bots";
 import { validateApiKey } from "@/lib/apikeys";
-import { recordUsage } from "@/lib/store";
+import { recordSession } from "@/lib/store";
+import { isIpBanned } from "@/lib/ipbans";
 import { assertPublicHost } from "@/lib/ssrf";
 import { consumeCredit } from "@/lib/credits";
 import { parseDelta } from "@/lib/stream";
@@ -27,6 +28,12 @@ export async function POST(req: NextRequest, { params }: Params) {
   const cors = corsHeaders(req, bot.allowedOrigins ?? []);
   const bad = (error: string, status: number, extra: Record<string, string> = {}) =>
     NextResponse.json({ error }, { status, headers: { ...cors, ...extra } });
+
+  // Security: reject banned IPs for this org before doing any work.
+  const ip = clientIp(req);
+  if (await isIpBanned(bot.organizationId, ip)) return bad("ip_banned", 403);
+  const ua = req.headers.get("user-agent");
+  const country = req.headers.get("x-vercel-ip-country"); // Vercel geo header
 
   // Caller identity: API key (server-to-server, org-scoped) > org member (cookie
   // session) > anonymous bot-bound token (public bots only). Private bots are
@@ -139,8 +146,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         push(FALLBACK);
       }
       if (!full) push(FALLBACK);
-      // Stats only: record a content-free usage event. Never store message text.
-      await recordUsage(bot.id, sid).catch(() => {});
+      // Record session metadata only (ip, geo, parsed UA). Never store message text.
+      await recordSession(bot.id, sid, { ip, ua, country }).catch(() => {});
       controller.close();
     },
   });

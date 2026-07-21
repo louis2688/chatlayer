@@ -9,6 +9,7 @@ import { invitation, member, organization, user } from "@/lib/db/schema";
 import { createBot, deleteBot, updateBot } from "@/lib/bots";
 import { createApiKey, revokeApiKey } from "@/lib/apikeys";
 import { PACKAGES, addCredits } from "@/lib/credits";
+import { addIpBan, removeIpBan } from "@/lib/ipbans";
 import { assertHttpUrl } from "@/lib/ssrf";
 import { requireContext } from "@/lib/server-auth";
 
@@ -144,4 +145,20 @@ export async function purchaseCreditsAction(formData: FormData) {
   if (!pkg) throw new Error("Unknown package");
   await addCredits(orgId, pkg.credits, `purchase:${pkg.id}`);
   revalidatePath("/billing");
+}
+
+export async function banIpAction(formData: FormData) {
+  const { orgId } = await requireContext();
+  const ip = String(formData.get("ip") || "").trim().slice(0, 64);
+  const reason = String(formData.get("reason") || "").slice(0, 200);
+  if (ip) await addIpBan(orgId, ip, reason);
+  revalidatePath("/security");
+  revalidatePath("/analytics");
+}
+
+export async function unbanIpAction(formData: FormData) {
+  const { orgId } = await requireContext();
+  await removeIpBan(orgId, String(formData.get("banId")));
+  revalidatePath("/security");
+  revalidatePath("/analytics");
 }

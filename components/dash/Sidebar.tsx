@@ -16,6 +16,7 @@ const NAV = [
   { href: "/analytics", label: "Analytics", icon: icon("M3 3v18h18M7 14l4-4 3 3 5-6") },
   { href: "/bots", label: "Bots", icon: icon("M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z") },
   { href: "/billing", label: "Billing", icon: icon("M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM2 10h20") },
+  { href: "/security", label: "Security", icon: icon("M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z") },
   { href: "/docs", label: "Docs", icon: icon("M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z") },
   { href: "/settings", label: "Settings", icon: icon("M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6") },
 ];

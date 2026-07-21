@@ -23,6 +23,7 @@ forwarding it to your n8n webhook.**
 | Styling | Tailwind v4 (BMW M theme: black canvas, M-blue accent, sharp corners) |
 | Hosting | Vercel (functions pinned to sin1, next to Neon in ap-southeast-1) |
 | Markdown | marked + dompurify (sanitized) |
+| UA parsing | ua-parser-js v1 (MIT) - browser/OS/device for analytics |
 
 ---
 
@@ -75,16 +76,16 @@ sequenceDiagram
   G-->>P: HMAC session token (bound to this bot)
   P->>W: load /widget/[botId]#t=token
   W->>G: POST /api/chat/[botId] { message } + Bearer token
-  Note over G: identify caller, rate limit, check credits, SSRF check
+  Note over G: reject banned IPs, identify caller, rate limit, credits, SSRF
   G->>N: POST { action, sessionId, chatInput }
   N-->>G: streamed reply (NDJSON / SSE / single JSON)
   G-->>W: streamed text/plain deltas (rendered as markdown)
-  G->>D: record a usage event (stats only, no message text)
+  G->>D: upsert the session (ip, geo, parsed UA); no message text
 ```
 
 Step by step, inside `app/api/chat/[botId]/route.ts`:
 
-1. **Load the bot** from Postgres by id. 404 if it does not exist.
+1. **Load the bot** from Postgres by id (404 if missing), then **reject banned IPs**: org-scoped IP bans are checked first, returning `403 ip_banned` before any work is done (`lib/ipbans.ts`).
 2. **Identify the caller** (the caller-identity ladder, most-trusted first):
    - **API key** (`X-API-Key`, server-to-server), validated in `lib/apikeys.ts`,
      must belong to the bot org.
@@ -106,10 +107,11 @@ Step by step, inside `app/api/chat/[botId]/route.ts`:
    (`lib/stream.ts` handles NDJSON token chunks, SSE data frames, or a single JSON
    body) and streamed to the browser as `text/plain` deltas, which the widget renders
    as sanitized markdown.
-8. **Record a usage stat**: `recordUsage()` inserts one content-free event
-   (bot id + anonymous session id + timestamp) via `lib/store.ts`. **No message
-   text is ever stored** -- ChatLayer is a secure UI + router for n8n, not a chat
-   archive, so there is nothing to retain, leak, or be compelled to hand over.
+8. **Record the session**: `recordSession()` (`lib/store.ts`) upserts one row per
+   session with the ip, geo country (Vercel `x-vercel-ip-country`), and the
+   browser/OS/device parsed from the user agent (ua-parser-js), bumping a message
+   counter. **Still no message text** -- only session metadata for analytics and
+   security. ChatLayer is a secure UI + router for n8n, not a chat archive.
 
 The **embed loader** (`public/embed.js`) is what makes the origin check meaningful:
 it runs in the *parent* page, calls `/api/session/[botId]` from there (so the browser
@@ -166,7 +168,8 @@ Defense in depth, layer by layer:
 | Tenant isolation | Org checks on every read + server action | `app/(dash)/actions.ts`, routes |
 | Input validation | 4000-char message cap; Zod on all server actions | routes, actions |
 | Credit metering | 1 credit per message; 402 when drained | `lib/credits.ts` |
-| No message storage | Chat text is never persisted; only content-free usage counts | `lib/store.ts` |
+| No message storage | Chat text is never persisted; only session metadata (ip, geo, UA) | `lib/store.ts` |
+| IP ban | Org-scoped IP blocklist, rejected at the gateway before any work | `lib/ipbans.ts` |
 
 Two independent adversarial reviews were run during development; the confirmed
 findings (a cross-tenant private-bot bypass, an SSRF hole, an invite
@@ -184,15 +187,17 @@ erDiagram
   organization ||--o{ apiKey : owns
   organization ||--o{ creditTxn : ledger
   user ||--o{ member : joins
-  bot ||--o{ usageEvent : logs
+  organization ||--o{ ipBan : blocks
+  bot ||--o{ chatSession : logs
 ```
 
 - **better-auth tables**: `user`, `session`, `account`, `verification`.
 - **org plugin**: `organization` (white-label fields + `credits`), `member`,
   `invitation`.
-- **app tables**: `bot` (webhook, branding, limits, widget options), `usageEvent`
-  (content-free stats -- bot id, anonymous session id, timestamp; **no message
-  text**), `apiKey`, `creditTxn` (credit ledger).
+- **app tables**: `bot` (webhook, branding, limits, widget options), `chatSession`
+  (one row per session -- ip, geo country, parsed browser/os/device, message
+  counter; **no message text**), `ipBan` (org-scoped IP blocklist), `apiKey`,
+  `creditTxn` (credit ledger).
 
 Schema lives in `lib/db/schema.ts`; the client (postgres.js, `prepare:false` for the
 Neon pooler) in `lib/db/index.ts`. Push it with `npm run db:push`.
@@ -212,7 +217,8 @@ Neon pooler) in `lib/db/index.ts`. Push it with `npm run db:push`.
 - **Public vs private bots**: anonymous visitors vs org-member-only.
 - **Billing**: message credits (1 credit = 1 message), a packages page, and a ledger.
   Stripe-ready (`STRIPE_SECRET_KEY`); dev top-up otherwise.
-- **Analytics (stats only)**: message/session counts, a 14-day chart, and a per-bot breakdown (`lib/analytics.ts`) -- all derived from content-free usage events, never from stored chat text.
+- **Analytics (metadata only)**: session/message counts, a 14-day chart, per-bot, and top browsers/countries (`lib/analytics.ts`), plus a recent-sessions table -- all from session metadata, never chat text.
+- **IP ban**: org-scoped IP blocklist (`lib/ipbans.ts`), managed on the Security page or straight from the analytics session list, enforced at the gateway.
 - **MCP server**: `/api/mcp` exposes list_bots, create_bot, update_bot, and
   get_analytics to Claude/Cursor, authenticated by an org API key.
 - **White-label**: brand name, hide the "Protected by ChatLayer" footer, custom
@@ -228,7 +234,7 @@ app/
   page.tsx                     landing page (marketing + live demo)
   (auth)/login, signup         auth pages
   (dash)/                      dashboard (layout guards via requireContext)
-    dashboard, analytics, bots, billing, settings
+    dashboard, analytics, bots, billing, security, settings
     actions.ts                 server actions (all org-scoped, Zod-validated)
   widget/[botId]/              the embeddable chat page (iframe target)
   docs/                        in-app quickstart docs
@@ -247,7 +253,8 @@ lib/
   bots.ts, apikeys.ts          bot CRUD + API key management
   config.ts, token.ts          origin/IP/CORS helpers + HMAC chat tokens
   ratelimit.ts, ssrf.ts        rate limiting + SSRF guard
-  store.ts                     usage-event recording (stats only, no message text)
+  store.ts                     session recording (metadata only, no message text)
+  ipbans.ts                    org-scoped IP ban list + gateway check
   analytics.ts, credits.ts     stats + billing
   stream.ts                    upstream reply parser
 public/embed.js                the one-tag embed loader

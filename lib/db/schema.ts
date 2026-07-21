@@ -123,18 +123,40 @@ export const bot = pgTable("bot", {
   createdAt: ts("createdAt").notNull().$defaultFn(now),
 });
 
-// Content-free usage events: one row per handled user message. Powers the
-// stats/analytics (counts, per-day, per-bot, distinct sessions) without ever
-// storing message text. ChatLayer is a secure UI + router, not a chat store.
-export const usageEvent = pgTable(
-  "usageEvent",
+// One row per chat session (not per message): anonymous session id plus the
+// metadata analytics + security need -- ip, geo country, and the browser/os/
+// device parsed from the user agent. No message text. Upserted on each message,
+// bumping the message counter and lastSeenAt.
+export const chatSession = pgTable(
+  "chatSession",
   {
     id: text("id").primaryKey().$defaultFn(uid),
     botId: text("botId").notNull().references(() => bot.id, { onDelete: "cascade" }),
     sessionId: text("sessionId").notNull(),
+    ip: text("ip"),
+    country: text("country"),
+    browser: text("browser"),
+    os: text("os"),
+    device: text("device"),
+    messages: integer("messages").notNull().default(0),
+    createdAt: ts("createdAt").notNull().$defaultFn(now),
+    lastSeenAt: ts("lastSeenAt").notNull().$defaultFn(now),
+  },
+  (t) => [uniqueIndex("chatsession_bot_session_idx").on(t.botId, t.sessionId), index("chatsession_created_idx").on(t.createdAt)],
+);
+
+// Org-scoped IP bans. A banned ip is rejected at the chat gateway before any
+// work is done. Managed from the Security page or the analytics session list.
+export const ipBan = pgTable(
+  "ipBan",
+  {
+    id: text("id").primaryKey().$defaultFn(uid),
+    organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
+    ip: text("ip").notNull(),
+    reason: text("reason"),
     createdAt: ts("createdAt").notNull().$defaultFn(now),
   },
-  (t) => [index("usage_bot_idx").on(t.botId), index("usage_created_idx").on(t.createdAt)],
+  (t) => [uniqueIndex("ipban_org_ip_idx").on(t.organizationId, t.ip)],
 );
 
 export const apiKey = pgTable("apiKey", {

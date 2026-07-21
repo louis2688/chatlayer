@@ -11,16 +11,19 @@ const FEATURES: Array<[string, string]> = [
   ["Multi-tenant SaaS", "Organizations, teams, conversation history, analytics, and white-label branding built in."],
 ];
 
-const cta = "inline-flex items-center justify-center bg-[#1c69d4] px-6 py-3 text-xs font-bold uppercase tracking-[1.5px] text-white transition-colors hover:bg-[#0653b6]";
-const ctaOutline = "inline-flex items-center justify-center border border-white/25 px-6 py-3 text-xs font-bold uppercase tracking-[1.5px] text-white transition-colors hover:border-white";
+const cta = "inline-flex items-center justify-center rounded-[25%] bg-[#1c69d4] px-6 py-3 text-xs font-bold uppercase tracking-[1.5px] text-white transition-colors hover:bg-[#0653b6]";
+const ctaOutline = "inline-flex items-center justify-center rounded-[25%] border border-white/25 px-6 py-3 text-xs font-bold uppercase tracking-[1.5px] text-white transition-colors hover:border-white";
 
 export default async function Home() {
   const bot = await getBot("demo");
   return (
-    <main className="min-h-dvh bg-black text-white">
+    <main className="relative min-h-dvh overflow-hidden bg-black text-white">
       <div className="m-stripe" />
+      {/* M-blue background glow */}
+      <div aria-hidden className="pointer-events-none absolute -top-32 left-1/2 h-[560px] w-[820px] -translate-x-1/2 rounded-full bg-[#1c69d4]/25 blur-[130px]" />
+      <div aria-hidden className="pointer-events-none absolute top-1/3 -right-40 h-[420px] w-[520px] rounded-full bg-[#0653b6]/20 blur-[130px]" />
 
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+      <nav className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <span className="text-lg font-bold uppercase tracking-[1px]">ChatLayer</span>
         <div className="flex items-center gap-6 text-xs font-bold uppercase tracking-[1.5px]">
           <Link href="/login" className="text-neutral-300 transition-colors hover:text-white">Log in</Link>
@@ -28,7 +31,7 @@ export default async function Home() {
         </div>
       </nav>
 
-      <div className="mx-auto grid max-w-6xl gap-14 px-6 py-10 lg:grid-cols-[1.1fr_0.9fr] lg:py-16">
+      <div className="relative mx-auto grid max-w-6xl gap-14 px-6 py-10 lg:grid-cols-[1.1fr_0.9fr] lg:py-16">
         <div>
           <p className="inline-flex items-center gap-2 border border-white/20 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[1.5px] text-neutral-200">
             <svg className="h-3 w-3 text-[#1c69d4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
@@ -82,8 +85,8 @@ export default async function Home() {
         </div>
       </div>
 
-      <div className="m-stripe" />
-      <footer className="py-6 text-center text-xs font-bold uppercase tracking-[1.5px] text-neutral-600">
+      <div className="relative m-stripe" />
+      <footer className="relative py-6 text-center text-xs font-bold uppercase tracking-[1.5px] text-neutral-600">
         Build with n8n. Deploy with ChatLayer.
       </footer>
     </main>

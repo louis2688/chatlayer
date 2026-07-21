@@ -1,5 +1,9 @@
 import AuthForm from "@/components/dash/AuthForm";
 
+// Rendered per request so the Google button reflects the runtime env
+// (GOOGLE_CLIENT_ID) instead of being frozen at build time.
+export const dynamic = "force-dynamic";
+
 export const metadata = { title: "Sign up - ChatLayer" };
 
 export default function SignupPage() {

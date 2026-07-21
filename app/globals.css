@@ -98,3 +98,6 @@ body {
 .md-body table { border-collapse: collapse; margin: 0.5em 0; }
 .md-body th, .md-body td { border: 1px solid rgba(128,128,128,.3); padding: 0.3em 0.6em; }
 .md-body strong { font-weight: 600; }
+
+/* Buttons use a 25% rounded corner; circular icon/pill controls stay full-round */
+button:not(.rounded-full) { border-radius: 25%; }

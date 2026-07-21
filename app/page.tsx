@@ -11,8 +11,8 @@ const FEATURES: Array<[string, string]> = [
   ["Multi-tenant SaaS", "Organizations, teams, conversation history, analytics, and white-label branding built in."],
 ];
 
-const cta = "inline-flex items-center justify-center rounded-[25%] bg-[#1c69d4] px-6 py-3 text-xs font-bold uppercase tracking-[1.5px] text-white transition-colors hover:bg-[#0653b6]";
-const ctaOutline = "inline-flex items-center justify-center rounded-[25%] border border-white/25 px-6 py-3 text-xs font-bold uppercase tracking-[1.5px] text-white transition-colors hover:border-white";
+const cta = "inline-flex items-center justify-center rounded-[8px] bg-[#1c69d4] px-6 py-3 text-xs font-bold uppercase tracking-[1.5px] text-white transition-colors hover:bg-[#0653b6]";
+const ctaOutline = "inline-flex items-center justify-center rounded-[8px] border border-white/25 px-6 py-3 text-xs font-bold uppercase tracking-[1.5px] text-white transition-colors hover:border-white";
 
 export default async function Home() {
   const bot = await getBot("demo");

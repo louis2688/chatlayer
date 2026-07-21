@@ -1,0 +1,166 @@
+import { NextRequest, NextResponse } from "next/server";
+import { clientIp, corsHeaders, originAllowed } from "@/lib/config";
+import { rateLimit } from "@/lib/ratelimit";
+import { verifySession } from "@/lib/token";
+import { getBot, isOrgMember } from "@/lib/bots";
+import { validateApiKey } from "@/lib/apikeys";
+import { recordExchange } from "@/lib/store";
+import { assertPublicHost } from "@/lib/ssrf";
+import { consumeCredit } from "@/lib/credits";
+import { parseDelta } from "@/lib/stream";
+import { auth } from "@/lib/auth";
+
+export const runtime = "nodejs";
+
+const MAX_INPUT_CHARS = 4000;
+const FALLBACK = "Sorry, I couldn't generate a response. Please try again.";
+type Params = { params: Promise<{ botId: string }> };
+
+export async function OPTIONS(req: NextRequest, { params }: Params) {
+  const bot = await getBot((await params).botId);
+  return new NextResponse(null, { status: 204, headers: corsHeaders(req, bot?.allowedOrigins ?? []) });
+}
+
+export async function POST(req: NextRequest, { params }: Params) {
+  const bot = await getBot((await params).botId);
+  if (!bot) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const cors = corsHeaders(req, bot.allowedOrigins ?? []);
+  const bad = (error: string, status: number, extra: Record<string, string> = {}) =>
+    NextResponse.json({ error }, { status, headers: { ...cors, ...extra } });
+
+  // Caller identity: API key (server-to-server, org-scoped) > org member (cookie
+  // session) > anonymous bot-bound token (public bots only). Private bots are
+  // reachable ONLY by members of the owning org.
+  let sid: string;
+  let userId: string | null = null;
+
+  const apiKeyOrg = await validateApiKey(req.headers.get("x-api-key"));
+  if (apiKeyOrg) {
+    if (apiKeyOrg !== bot.organizationId) return bad("forbidden", 403);
+    const body = await safeBody(req);
+    sid = typeof body?.sessionId === "string" && body.sessionId ? `key:${body.sessionId}` : `key:${crypto.randomUUID()}`;
+  } else {
+    if (!originAllowed(req, bot.allowedOrigins ?? [])) return bad("origin_not_allowed", 403);
+    const authed = await auth.api.getSession({ headers: req.headers });
+    const member = authed ? await isOrgMember(authed.user.id, bot.organizationId) : false;
+    if (authed && member) {
+      userId = authed.user.id;
+      sid = `user:${userId}`;
+    } else if (bot.isPublic) {
+      const header = req.headers.get("authorization") ?? "";
+      const token = verifySession(header.startsWith("Bearer ") ? header.slice(7) : null);
+      if (!token || token.botId !== bot.id) return bad("invalid_session", 401);
+      sid = token.sid;
+    } else {
+      return bad("auth_required", 401);
+    }
+  }
+
+  for (const [key, limit] of [
+    [`chat:ip:${bot.id}:${clientIp(req)}`, bot.ratePerIp],
+    [`chat:sid:${bot.id}:${sid}`, bot.ratePerSession],
+  ] as const) {
+    const rl = rateLimit(key, limit, 60_000);
+    if (!rl.ok) return bad("rate_limited", 429, { "Retry-After": String(rl.retryAfterSec) });
+  }
+
+  const body = await safeBody(req);
+  const message = body?.message;
+  if (typeof message !== "string" || !message.trim() || message.length > MAX_INPUT_CHARS) {
+    return bad("bad_request", 400);
+  }
+  const clean = message.trim();
+
+  // Optional file attachment (base64 data URL). Validated against bot limits,
+  // forwarded to n8n under `files`. ponytail: exact n8n file schema may need
+  // tweaking against a live instance.
+  let filePayload: { name: string; mimeType: string; data: string } | undefined;
+  const file = body?.file as { name?: string; type?: string; dataUrl?: string } | undefined;
+  if (file && typeof file.dataUrl === "string" && file.dataUrl.startsWith("data:")) {
+    if (!bot.allowFileUpload) return bad("bad_request", 400);
+    const b64 = file.dataUrl.split(",")[1] ?? "";
+    if (Math.floor((b64.length * 3) / 4) > bot.maxFileSizeMb * 1024 * 1024) return bad("file_too_large", 413);
+    if (bot.allowedFileTypes.length && file.type && !bot.allowedFileTypes.includes(file.type)) return bad("file_type_not_allowed", 415);
+    filePayload = { name: String(file.name || "file").slice(0, 200), mimeType: String(file.type || "application/octet-stream"), data: b64 };
+  }
+
+  let target: URL;
+  try {
+    target = new URL(bot.webhookUrl);
+    await assertPublicHost(target); // SSRF guard before any request
+  } catch {
+    return bad("upstream_error", 502);
+  }
+
+  // Billing: 1 credit per user message (charged to the bot's org).
+  if (!(await consumeCredit(bot.organizationId))) return bad("out_of_credits", 402);
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (bot.webhookAuthHeader && bot.webhookAuthValue) headers[bot.webhookAuthHeader] = bot.webhookAuthValue;
+
+  // Stream the reply to the client as text deltas. Works whether n8n streams
+  // (NDJSON / SSE token chunks) or returns a single JSON body (sent as one delta).
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let full = "";
+      const push = (s: string) => {
+        if (!s) return;
+        full += s;
+        controller.enqueue(encoder.encode(s));
+      };
+      try {
+        const upstream = await fetch(target, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ action: "sendMessage", sessionId: sid, chatInput: clean, ...(filePayload ? { files: [filePayload] } : {}) }),
+          signal: AbortSignal.timeout(120_000),
+          redirect: "error",
+        });
+        if (!upstream.ok || !upstream.body) {
+          push(FALLBACK);
+        } else {
+          const reader = upstream.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = "";
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let nl: number;
+            while ((nl = buf.indexOf("\n")) >= 0) {
+              push(parseDelta(buf.slice(0, nl)));
+              buf = buf.slice(nl + 1);
+            }
+          }
+          push(parseDelta(buf));
+        }
+      } catch {
+        push(FALLBACK);
+      }
+      if (!full) push(FALLBACK);
+      await recordExchange(bot.id, sid, userId, clean, full).catch(() => {});
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      ...cors,
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
+
+async function safeBody(req: NextRequest): Promise<Record<string, unknown> | null> {
+  const anyReq = req as unknown as { _cachedBody?: Record<string, unknown> | null };
+  if (anyReq._cachedBody !== undefined) return anyReq._cachedBody;
+  try {
+    anyReq._cachedBody = (await req.json()) as Record<string, unknown>;
+  } catch {
+    anyReq._cachedBody = null;
+  }
+  return anyReq._cachedBody;
+}

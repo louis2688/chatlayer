@@ -1,0 +1,82 @@
+import { and, desc, eq } from "drizzle-orm";
+import { db } from "./db";
+import { bot, member, organization } from "./db/schema";
+
+export type Bot = typeof bot.$inferSelect;
+export type PublicBotConfig = {
+  id: string;
+  name: string;
+  welcome: string;
+  color: string;
+  logoUrl: string | null;
+  suggestedPrompts: string[];
+  isPublic: boolean;
+  rtl: boolean;
+  consentRequired: boolean;
+  consentText: string | null;
+  allowFileUpload: boolean;
+  maxFileSizeMb: number;
+  allowedFileTypes: string[];
+};
+
+export async function getBot(id: string): Promise<Bot | undefined> {
+  return db.query.bot.findFirst({ where: eq(bot.id, id) });
+}
+
+export async function listBots(orgId: string): Promise<Bot[]> {
+  return db.select().from(bot).where(eq(bot.organizationId, orgId)).orderBy(desc(bot.createdAt));
+}
+
+export async function createBot(orgId: string, data: Partial<Bot> & { name: string; webhookUrl: string }) {
+  const [row] = await db
+    .insert(bot)
+    .values({ ...data, organizationId: orgId, suggestedPrompts: data.suggestedPrompts ?? [], allowedOrigins: data.allowedOrigins ?? [] })
+    .returning();
+  return row;
+}
+
+// Update scoped to org so one org can't touch another's bot.
+export async function updateBot(orgId: string, id: string, data: Partial<Bot>) {
+  const existing = await getBot(id);
+  if (!existing || existing.organizationId !== orgId) return null;
+  const { id: _i, organizationId: _o, createdAt: _c, ...safe } = data;
+  const [row] = await db.update(bot).set(safe).where(eq(bot.id, id)).returning();
+  return row;
+}
+
+export async function deleteBot(orgId: string, id: string) {
+  const existing = await getBot(id);
+  if (!existing || existing.organizationId !== orgId) return false;
+  await db.delete(bot).where(eq(bot.id, id));
+  return true;
+}
+
+export function publicConfig(b: Bot): PublicBotConfig {
+  return {
+    id: b.id,
+    name: b.name,
+    welcome: b.welcome,
+    color: b.color,
+    logoUrl: b.logoUrl,
+    suggestedPrompts: b.suggestedPrompts ?? [],
+    isPublic: b.isPublic,
+    rtl: b.rtl,
+    consentRequired: b.consentRequired,
+    consentText: b.consentText,
+    allowFileUpload: b.allowFileUpload,
+    maxFileSizeMb: b.maxFileSizeMb,
+    allowedFileTypes: b.allowedFileTypes ?? [],
+  };
+}
+
+export async function orgHideBranding(orgId: string): Promise<boolean> {
+  const o = await db.query.organization.findFirst({ where: eq(organization.id, orgId) });
+  return o?.hideBranding ?? false;
+}
+
+export async function isOrgMember(userId: string, orgId: string): Promise<boolean> {
+  const m = await db.query.member.findFirst({
+    where: and(eq(member.userId, userId), eq(member.organizationId, orgId)),
+  });
+  return !!m;
+}

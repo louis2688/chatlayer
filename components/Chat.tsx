@@ -1,0 +1,325 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+import type { PublicBotConfig } from "@/lib/bots";
+
+type Msg = { role: "user" | "bot" | "notice"; text: string };
+
+marked.setOptions({ breaks: true, gfm: true });
+function renderMarkdown(text: string): string {
+  const html = marked.parse(text, { async: false }) as string;
+  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+}
+
+let memoryToken: string | null = null;
+function tokenKey(botId: string) {
+  return `chatlayer.token.${botId}`;
+}
+function readToken(botId: string): string | null {
+  try {
+    return sessionStorage.getItem(tokenKey(botId)) ?? memoryToken;
+  } catch {
+    return memoryToken;
+  }
+}
+function writeToken(botId: string, token: string) {
+  memoryToken = token;
+  try {
+    sessionStorage.setItem(tokenKey(botId), token);
+  } catch {
+    // storage blocked; memoryToken holds it
+  }
+}
+
+export default function Chat({
+  config,
+  variant = "full",
+  hideBranding = false,
+}: {
+  config: PublicBotConfig;
+  variant?: "full" | "panel";
+  hideBranding?: boolean;
+}) {
+  const [messages, setMessages] = useState<Msg[]>([{ role: "bot", text: config.welcome }]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [consented, setConsented] = useState(!config.consentRequired);
+  const [pendingFile, setPendingFile] = useState<{ name: string; type: string; dataUrl: string } | null>(null);
+  const fileRef = useRef<{ name: string; type: string; dataUrl: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const asked = messages.some((m) => m.role === "user");
+  const lastSent = useRef("");
+
+  useEffect(() => {
+    setMounted(true);
+    // token handed in via the URL hash by embed.js (#t=...)
+    if (typeof window !== "undefined" && window.location.hash.startsWith("#t=")) {
+      writeToken(config.id, decodeURIComponent(window.location.hash.slice(3)));
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    if (config.consentRequired) {
+      try {
+        if (sessionStorage.getItem(`chatlayer.consent.${config.id}`)) setConsented(true);
+      } catch {
+        /* storage blocked */
+      }
+    }
+  }, [config.id, config.consentRequired]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, busy]);
+
+  async function getToken(force = false): Promise<string | null> {
+    if (!config.isPublic) return null;
+    if (!force) {
+      const cached = readToken(config.id);
+      if (cached) return cached;
+    }
+    const res = await fetch(`/api/session/${config.id}`, { method: "POST" });
+    if (!res.ok) throw new Error("session_failed");
+    const data = await res.json();
+    writeToken(config.id, data.token);
+    return data.token;
+  }
+
+  function postChat(token: string | null) {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return fetch(`/api/chat/${config.id}`, {
+      method: "POST",
+      headers,
+      credentials: "same-origin",
+      body: JSON.stringify({ message: lastSent.current, ...(fileRef.current ? { file: fileRef.current } : {}) }),
+    });
+  }
+
+  async function send(raw: string) {
+    const text = raw.trim();
+    if ((!text && !pendingFile) || busy) return;
+    fileRef.current = pendingFile;
+    lastSent.current = text || `Sent a file: ${pendingFile?.name ?? "file"}`;
+    const label = pendingFile ? `${text}${text ? "\n" : ""}📎 ${pendingFile.name}` : text;
+    setMessages((m) => [...m, { role: "user", text: label }]);
+    setPendingFile(null);
+    setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
+    setBusy(true);
+    try {
+      let res = await postChat(await getToken());
+      if (res.status === 401) {
+        if (config.isPublic) res = await postChat(await getToken(true));
+        else {
+          setMessages((m) => [...m, { role: "notice", text: "Please sign in to use this assistant." }]);
+          return;
+        }
+      }
+      if (res.status === 402) {
+        setMessages((m) => [...m, { role: "notice", text: "This assistant is out of message credits." }]);
+        return;
+      }
+      if (res.status === 429) {
+        const wait = res.headers.get("Retry-After");
+        setMessages((m) => [
+          ...m,
+          { role: "notice", text: wait ? `Sending too fast - try again in ${wait}s.` : "Sending too fast - give it a moment." },
+        ]);
+        return;
+      }
+      if (!res.ok) throw new Error(String(res.status));
+      const reader = res.body?.getReader();
+      if (!reader) {
+        const t = await res.text();
+        setMessages((m) => [...m, { role: "bot", text: t || "..." }]);
+      } else {
+        const decoder = new TextDecoder();
+        let acc = "";
+        let added = false;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += decoder.decode(value, { stream: true });
+          if (!added) {
+            added = true;
+            setBusy(false);
+            setMessages((m) => [...m, { role: "bot", text: acc }]);
+          } else {
+            setMessages((m) => {
+              const copy = m.slice();
+              copy[copy.length - 1] = { role: "bot", text: acc };
+              return copy;
+            });
+          }
+        }
+        if (!added) setMessages((m) => [...m, { role: "bot", text: acc || "..." }]);
+      }
+    } catch {
+      setMessages((m) => [...m, { role: "notice", text: "Something went wrong - please try again." }]);
+    } finally {
+      fileRef.current = null;
+      setBusy(false);
+      inputRef.current?.focus();
+    }
+  }
+
+  const shell =
+    variant === "panel"
+      ? "flex h-[560px] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white text-neutral-900 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100"
+      : "flex h-dvh flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100";
+
+  return (
+    <div className={shell} dir={config.rtl ? "rtl" : "ltr"} style={{ "--brand": config.color } as React.CSSProperties}>
+      <header className="flex items-center gap-3 border-b border-neutral-100 px-4 py-3 dark:border-neutral-800/60">
+        {config.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={config.logoUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
+        ) : (
+          <div className="grid h-9 w-9 place-items-center rounded-full bg-[var(--brand)] text-sm font-semibold text-white">
+            {config.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{config.name}</p>
+          <p className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+            Online
+          </p>
+        </div>
+        <svg className="ms-auto h-4 w-4 text-neutral-300 dark:text-neutral-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z" strokeLinejoin="round" />
+        </svg>
+      </header>
+
+      {!consented ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
+          <p className="max-w-sm text-sm text-neutral-600 dark:text-neutral-300">
+            {config.consentText || "By continuing, you agree to chat with this assistant."}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setConsented(true);
+              try {
+                sessionStorage.setItem(`chatlayer.consent.${config.id}`, "1");
+              } catch {
+                /* storage blocked */
+              }
+            }}
+            className="rounded-lg bg-[var(--brand)] px-5 py-2.5 text-sm font-medium text-white"
+          >
+            I agree, start chatting
+          </button>
+        </div>
+      ) : (
+        <>
+          <div ref={scrollRef} className="chat-scroll flex-1 space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">
+            {messages.map((m, i) =>
+              m.role === "notice" ? (
+                <p key={i} className="mx-auto w-fit max-w-[90%] rounded-full bg-amber-50 px-3 py-1 text-center text-xs text-amber-700 dark:bg-amber-950/50 dark:text-amber-400">
+                  {m.text}
+                </p>
+              ) : m.role === "user" ? (
+                <p key={i} className="ms-auto w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-[var(--brand)] px-3.5 py-2 text-sm text-white">
+                  {m.text}
+                </p>
+              ) : mounted ? (
+                <div key={i} className="md-body w-fit max-w-[85%] break-words rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-2 text-sm dark:bg-neutral-800/80" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }} />
+              ) : (
+                <p key={i} className="w-fit max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-2 text-sm dark:bg-neutral-800/80">
+                  {m.text}
+                </p>
+              ),
+            )}
+            {busy && (
+              <div role="status" aria-label={`${config.name} is typing`} className="flex w-fit items-center gap-1 rounded-2xl rounded-bl-md bg-neutral-100 px-3.5 py-3 dark:bg-neutral-800/80">
+                <span className="typing-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" aria-hidden />
+                <span className="typing-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" aria-hidden />
+                <span className="typing-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" aria-hidden />
+              </div>
+            )}
+          </div>
+
+          {!asked && config.suggestedPrompts.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-4 pb-2">
+              {config.suggestedPrompts.map((p) => (
+                <button key={p} type="button" onClick={() => send(p)} className="rounded-full border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 transition-colors hover:border-[var(--brand)] hover:text-[var(--brand)] dark:border-neutral-700 dark:text-neutral-300">
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {pendingFile && (
+            <div className="flex items-center gap-2 px-4 pb-1 text-xs text-neutral-500">
+              <span className="truncate">&#128206; {pendingFile.name}</span>
+              <button type="button" onClick={() => setPendingFile(null)} className="text-red-400 hover:text-red-300">remove</button>
+            </div>
+          )}
+          <form className="flex items-end gap-2 border-t border-neutral-100 p-3 dark:border-neutral-800/60" onSubmit={(e) => { e.preventDefault(); send(input); }}>
+            {config.allowFileUpload && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept={config.allowedFileTypes.length ? config.allowedFileTypes.join(",") : undefined}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!f) return;
+                    if (f.size > config.maxFileSizeMb * 1024 * 1024) {
+                      setMessages((m) => [...m, { role: "notice", text: `File too large (max ${config.maxFileSizeMb}MB).` }]);
+                      return;
+                    }
+                    if (config.allowedFileTypes.length && !config.allowedFileTypes.includes(f.type)) {
+                      setMessages((m) => [...m, { role: "notice", text: "File type not allowed." }]);
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => setPendingFile({ name: f.name, type: f.type, dataUrl: String(reader.result) });
+                    reader.readAsDataURL(f);
+                  }}
+                />
+                <button type="button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:border-[var(--brand)] dark:border-neutral-700">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </>
+            )}
+            <textarea
+              ref={inputRef}
+              rows={1}
+              value={input}
+              maxLength={4000}
+              placeholder="Type a message"
+              aria-label="Message"
+              className="max-h-32 min-h-10 flex-1 resize-none rounded-xl border border-neutral-200 bg-transparent px-3.5 py-2.5 text-sm outline-none transition-colors placeholder:text-neutral-500 focus:border-[var(--brand)] dark:border-neutral-700 dark:placeholder:text-neutral-400"
+              onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = `${e.target.scrollHeight}px`; }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  send(input);
+                }
+              }}
+            />
+            <button type="submit" disabled={busy || !input.trim()} aria-label="Send message" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--brand)] text-white transition-opacity disabled:opacity-40">
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </form>
+          {!hideBranding && (
+            <p className="pb-2 text-center text-[10px] text-neutral-400 dark:text-neutral-600">Protected by ChatLayer</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

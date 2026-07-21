@@ -1,0 +1,95 @@
+// Runnable self-check: node test/selfcheck.ts
+import assert from "node:assert/strict";
+import { setTimeout as sleep } from "node:timers/promises";
+import { issueSession, verifySession } from "../lib/token.ts";
+import { rateLimit } from "../lib/ratelimit.ts";
+import { clientIp, intEnv } from "../lib/config.ts";
+import { assertHttpUrl } from "../lib/ssrf.ts";
+import { parseDelta } from "../lib/stream.ts";
+
+process.env.SESSION_SECRET = "test-secret-0123456789012345678901234567";
+
+// --- token: bound to a bot ---
+const token = issueSession("botA");
+const s = verifySession(token);
+assert.ok(s, "valid token verifies");
+assert.equal(s.botId, "botA", "botId round-trips");
+assert.ok(s.exp > Math.floor(Date.now() / 1000), "expiry in the future");
+
+// tampering + malformed rejected
+const [body, sig] = token.split(".");
+assert.equal(verifySession(`${body}x.${sig}`), null, "tampered body rejected");
+assert.equal(verifySession(`${body}.AAAA${sig.slice(4)}`), null, "tampered sig rejected");
+assert.equal(verifySession(""), null);
+assert.equal(verifySession("garbage"), null);
+assert.equal(verifySession(null), null);
+assert.equal(verifySession(issueSession("botA", -10)), null, "expired rejected");
+
+// wrong secret rejected
+process.env.SESSION_SECRET = "another-secret-987654321098765432109876";
+assert.equal(verifySession(token), null, "old-secret token rejected");
+process.env.SESSION_SECRET = "test-secret-0123456789012345678901234567";
+
+// --- rate limit ---
+for (let i = 0; i < 3; i++) assert.ok(rateLimit("t1", 3, 10_000).ok);
+const denied = rateLimit("t1", 3, 10_000);
+assert.equal(denied.ok, false, "over-budget denied");
+assert.ok(denied.retryAfterSec >= 1);
+assert.ok(rateLimit("t2", 2, 200).ok);
+assert.ok(rateLimit("t2", 2, 200).ok);
+assert.equal(rateLimit("t2", 2, 200).ok, false);
+await sleep(250);
+assert.ok(rateLimit("t2", 2, 200).ok, "refilled after window");
+assert.ok(rateLimit("t3", 1, 10_000).ok);
+assert.ok(rateLimit("t4", 1, 10_000).ok, "keys independent");
+
+// --- intEnv ---
+delete process.env.RL;
+assert.equal(intEnv("RL", 20), 20);
+process.env.RL = "";
+assert.equal(intEnv("RL", 20), 20, "empty -> default");
+process.env.RL = "0";
+assert.equal(intEnv("RL", 20), 20, "zero -> default");
+process.env.RL = "45";
+assert.equal(intEnv("RL", 20), 45);
+delete process.env.RL;
+
+// --- clientIp: XFF spoof resistance ---
+const mk = (h) => ({ headers: { get: (k) => h[k.toLowerCase()] ?? null } });
+process.env.TRUST_PROXY_HOPS = "1";
+assert.equal(clientIp(mk({ "x-forwarded-for": "1.2.3.4, 9.9.9.9" })), "9.9.9.9", "rightmost real peer");
+process.env.TRUST_PROXY_HOPS = "0";
+assert.equal(clientIp(mk({ "x-forwarded-for": "1.2.3.4", "x-real-ip": "7.7.7.7" })), "7.7.7.7", "0 hops ignores XFF");
+assert.equal(clientIp(mk({})), "unknown");
+delete process.env.TRUST_PROXY_HOPS;
+
+// --- ssrf guard (ALLOW_PRIVATE_WEBHOOKS unset in the check env) ---
+for (const bad of [
+  "http://169.254.169.254/latest/meta-data/",
+  "http://127.0.0.1:5678/x",
+  "http://localhost/hook",
+  "http://10.0.0.5/",
+  "http://192.168.1.1/",
+  "http://172.16.9.9/",
+  "ftp://example.com/",
+  "http://[::1]/",
+  "http://metadata.google.internal/",
+]) {
+  assert.throws(() => assertHttpUrl(bad), `blocks ${bad}`);
+}
+for (const good of ["https://n8n.example.com/webhook/x", "http://8.8.8.8/hook"]) {
+  assert.doesNotThrow(() => assertHttpUrl(good), `allows ${good}`);
+}
+
+// --- stream parseDelta ---
+assert.equal(parseDelta('{"content":"Hel"}'), "Hel");
+assert.equal(parseDelta('data: {"content":"lo"}'), "lo");
+assert.equal(parseDelta('{"output":"full reply"}'), "full reply");
+assert.equal(parseDelta('[{"output":"arr"}]'), "arr");
+assert.equal(parseDelta('{"delta":"x"}'), "x");
+assert.equal(parseDelta("data: [DONE]"), "");
+assert.equal(parseDelta('{"type":"begin"}'), "", "control frame -> empty");
+assert.equal(parseDelta(""), "");
+assert.equal(parseDelta("plain token"), "plain token");
+
+console.log("selfcheck: all assertions passed");

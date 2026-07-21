@@ -1,26 +1,61 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #161917;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-jbmono);
+  --font-display: var(--font-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root.dark {
+  --background: #0b0d0c;
+  --foreground: #e8ebe9;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), system-ui, sans-serif;
 }
+
+/* Chat typing indicator */
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+.typing-dot { animation: typing-bounce 1.2s infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* Slim scrollbar in the message list */
+.chat-scroll { scrollbar-width: thin; scrollbar-color: rgba(128, 128, 128, 0.3) transparent; }
+.chat-scroll::-webkit-scrollbar { width: 6px; }
+.chat-scroll::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.3); border-radius: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot { animation: none; }
+}
+/* Rendered markdown inside bot messages */
+.md-body > *:first-child { margin-top: 0; }
+.md-body > *:last-child { margin-bottom: 0; }
+.md-body p { margin: 0.4em 0; }
+.md-body ul, .md-body ol { margin: 0.4em 0; padding-inline-start: 1.4em; }
+.md-body ul { list-style: disc; }
+.md-body ol { list-style: decimal; }
+.md-body li { margin: 0.15em 0; }
+.md-body a { color: var(--brand, #10b981); text-decoration: underline; }
+.md-body code { background: rgba(128,128,128,.18); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em; font-family: var(--font-mono), monospace; }
+.md-body pre { background: rgba(128,128,128,.15); padding: 0.7em; border-radius: 8px; overflow-x: auto; margin: 0.5em 0; }
+.md-body pre code { background: none; padding: 0; }
+.md-body h1, .md-body h2, .md-body h3 { font-weight: 600; margin: 0.5em 0 0.3em; line-height: 1.25; }
+.md-body blockquote { border-inline-start: 3px solid rgba(128,128,128,.4); padding-inline-start: 0.8em; margin: 0.4em 0; opacity: 0.85; }
+.md-body table { border-collapse: collapse; margin: 0.5em 0; }
+.md-body th, .md-body td { border: 1px solid rgba(128,128,128,.3); padding: 0.3em 0.6em; }
+.md-body strong { font-weight: 600; }

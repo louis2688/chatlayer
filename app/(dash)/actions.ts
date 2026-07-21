@@ -1,0 +1,147 @@
+"use server";
+
+import { and, eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { invitation, member, organization, user } from "@/lib/db/schema";
+import { createBot, deleteBot, updateBot } from "@/lib/bots";
+import { createApiKey, revokeApiKey } from "@/lib/apikeys";
+import { PACKAGES, addCredits } from "@/lib/credits";
+import { assertHttpUrl } from "@/lib/ssrf";
+import { requireContext } from "@/lib/server-auth";
+
+function lines(v: FormDataEntryValue | null): string[] {
+  return String(v ?? "")
+    .split(/[\n,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+const botSchema = z.object({
+  name: z.string().min(1).max(80),
+  webhookUrl: z.string().url(),
+  welcome: z.string().max(500).optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  logoUrl: z.string().url().or(z.literal("")).optional(),
+  webhookAuthHeader: z.string().max(100).optional(),
+  webhookAuthValue: z.string().max(500).optional(),
+  ratePerSession: z.coerce.number().int().min(1).max(1000),
+  ratePerIp: z.coerce.number().int().min(1).max(5000),
+  consentText: z.string().max(1000).optional(),
+  customCss: z.string().max(10000).optional(),
+  maxFileSizeMb: z.coerce.number().int().min(1).max(25),
+});
+
+function botValues(formData: FormData, p: z.infer<typeof botSchema>) {
+  assertHttpUrl(p.webhookUrl); // SSRF: reject internal/loopback/metadata targets
+  return {
+    name: p.name,
+    webhookUrl: p.webhookUrl,
+    welcome: p.welcome || undefined,
+    color: p.color || undefined,
+    logoUrl: p.logoUrl || null,
+    webhookAuthHeader: p.webhookAuthHeader || null,
+    webhookAuthValue: p.webhookAuthValue || null,
+    isPublic: formData.get("isPublic") === "on",
+    suggestedPrompts: lines(formData.get("suggestedPrompts")),
+    allowedOrigins: lines(formData.get("allowedOrigins")),
+    ratePerSession: p.ratePerSession,
+    ratePerIp: p.ratePerIp,
+    rtl: formData.get("rtl") === "on",
+    consentRequired: formData.get("consentRequired") === "on",
+    consentText: p.consentText || null,
+    customCss: p.customCss || null,
+    allowFileUpload: formData.get("allowFileUpload") === "on",
+    maxFileSizeMb: p.maxFileSizeMb,
+    allowedFileTypes: lines(formData.get("allowedFileTypes")),
+  };
+}
+
+export async function createBotAction(formData: FormData) {
+  const { orgId } = await requireContext();
+  const p = botSchema.parse(Object.fromEntries(formData));
+  const row = await createBot(orgId, botValues(formData, p));
+  redirect(`/bots/${row.id}`);
+}
+
+export async function updateBotAction(formData: FormData) {
+  const { orgId } = await requireContext();
+  const id = String(formData.get("botId"));
+  const p = botSchema.parse(Object.fromEntries(formData));
+  await updateBot(orgId, id, botValues(formData, p));
+  revalidatePath(`/bots/${id}`);
+  revalidatePath("/bots");
+}
+
+export async function deleteBotAction(formData: FormData) {
+  const { orgId } = await requireContext();
+  await deleteBot(orgId, String(formData.get("botId")));
+  redirect("/bots");
+}
+
+export async function createApiKeyAction(_prev: unknown, formData: FormData) {
+  const { orgId } = await requireContext();
+  const name = String(formData.get("name") || "API key").slice(0, 80);
+  const { plain } = await createApiKey(orgId, name);
+  revalidatePath("/settings");
+  return { plain };
+}
+
+export async function revokeApiKeyAction(formData: FormData) {
+  const { orgId } = await requireContext();
+  await revokeApiKey(orgId, String(formData.get("keyId")));
+  revalidatePath("/settings");
+}
+
+export async function updateOrgAction(formData: FormData) {
+  const { orgId, role } = await requireContext();
+  if (role !== "owner" && role !== "admin") throw new Error("Not authorized");
+  const brandName = String(formData.get("brandName") || "").slice(0, 80);
+  const customDomain = String(formData.get("customDomain") || "").slice(0, 200);
+  await db
+    .update(organization)
+    .set({ brandName: brandName || null, hideBranding: formData.get("hideBranding") === "on", customDomain: customDomain || null })
+    .where(eq(organization.id, orgId));
+  revalidatePath("/settings");
+}
+
+// Add an existing user, or record a pending invite. Owner/admin only; role is
+// restricted to member/admin (no owner grants here); dedupe is scoped to this org.
+export async function inviteMemberAction(formData: FormData) {
+  const ctx = await requireContext();
+  if (ctx.role !== "owner" && ctx.role !== "admin") throw new Error("Not authorized");
+  const email = z.string().email().parse(String(formData.get("email")));
+  const role = z.enum(["member", "admin"]).catch("member").parse(String(formData.get("role")));
+
+  const existing = await db.query.user.findFirst({ where: eq(user.email, email) });
+  if (existing) {
+    const already = await db.query.member.findFirst({
+      where: and(eq(member.userId, existing.id), eq(member.organizationId, ctx.orgId)),
+    });
+    if (!already) {
+      await db.insert(member).values({ id: crypto.randomUUID(), organizationId: ctx.orgId, userId: existing.id, role });
+    }
+  } else {
+    await db.insert(invitation).values({
+      id: crypto.randomUUID(),
+      organizationId: ctx.orgId,
+      email,
+      role,
+      inviterId: ctx.user.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+  }
+  revalidatePath("/settings");
+}
+
+// ponytail: dev top-up. With STRIPE_SECRET_KEY set, create a Checkout session and
+// redirect here instead, fulfilling via webhook. Not wired without keys.
+export async function purchaseCreditsAction(formData: FormData) {
+  const { orgId } = await requireContext();
+  const pkg = PACKAGES.find((p) => p.id === String(formData.get("packageId")));
+  if (!pkg) throw new Error("Unknown package");
+  await addCredits(orgId, pkg.credits, `purchase:${pkg.id}`);
+  revalidatePath("/billing");
+}

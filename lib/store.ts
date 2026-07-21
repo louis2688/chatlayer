@@ -1,26 +1,11 @@
-import { and, eq } from "drizzle-orm";
 import { db } from "./db";
-import { conversation, message } from "./db/schema";
+import { usageEvent } from "./db/schema";
 
-// Upsert the (bot, session) conversation atomically (unique index prevents the
-// TOCTOU double-insert), then append the exchange.
-export async function recordExchange(
-  botId: string,
-  sessionId: string,
-  userId: string | null,
-  userText: string,
-  botText: string,
-) {
-  await db
-    .insert(conversation)
-    .values({ botId, sessionId, userId })
-    .onConflictDoNothing({ target: [conversation.botId, conversation.sessionId] });
-  const conv = await db.query.conversation.findFirst({
-    where: and(eq(conversation.botId, botId), eq(conversation.sessionId, sessionId)),
-  });
-  if (!conv) return;
-  await db.insert(message).values([
-    { conversationId: conv.id, role: "user", content: userText },
-    { conversationId: conv.id, role: "bot", content: botText },
-  ]);
+// Record one content-free usage event per handled user message. We store the
+// bot, the (anonymous) session id, and a timestamp so the dashboard can show
+// stats. We deliberately do NOT store message text: ChatLayer is a secure UI +
+// router for n8n, not a conversation store, so there is no message content to
+// retain, leak, or be compelled to produce.
+export async function recordUsage(botId: string, sessionId: string) {
+  await db.insert(usageEvent).values({ botId, sessionId });
 }

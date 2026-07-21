@@ -3,7 +3,7 @@
 ChatLayer is a secure, branded chat frontend and gateway for **n8n Chat** workflows.
 n8n lets you build AI assistants; ChatLayer is the layer that sits between your
 visitors and n8n so you can expose those assistants to real users without leaking
-your webhook, getting hammered by abuse, or building auth, storage, and analytics
+your webhook, getting hammered by abuse, or building auth, rate limiting, and analytics
 yourself.
 
 The core idea in one line: **the browser never talks to n8n directly. It talks to
@@ -54,7 +54,7 @@ ChatLayer is a single Next.js app that plays three roles:
 2. **The widget** (`/widget/[botId]`, `public/embed.js`) is the embeddable chat UI
    customers drop onto their sites.
 3. **The dashboard** (`/dashboard`, `/bots`, `/settings`, ...) is where you manage
-   bots, view conversations/analytics, handle billing, teams, and API keys.
+   bots, view analytics, handle billing, teams, and API keys.
 
 ---
 
@@ -79,7 +79,7 @@ sequenceDiagram
   G->>N: POST { action, sessionId, chatInput }
   N-->>G: streamed reply (NDJSON / SSE / single JSON)
   G-->>W: streamed text/plain deltas (rendered as markdown)
-  G->>D: store conversation + user/bot messages
+  G->>D: record a usage event (stats only, no message text)
 ```
 
 Step by step, inside `app/api/chat/[botId]/route.ts`:
@@ -106,8 +106,10 @@ Step by step, inside `app/api/chat/[botId]/route.ts`:
    (`lib/stream.ts` handles NDJSON token chunks, SSE data frames, or a single JSON
    body) and streamed to the browser as `text/plain` deltas, which the widget renders
    as sanitized markdown.
-8. **Store the exchange**: `recordExchange()` upserts the conversation (unique on
-   bot+session) and appends the user + bot messages (`lib/store.ts`).
+8. **Record a usage stat**: `recordUsage()` inserts one content-free event
+   (bot id + anonymous session id + timestamp) via `lib/store.ts`. **No message
+   text is ever stored** -- ChatLayer is a secure UI + router for n8n, not a chat
+   archive, so there is nothing to retain, leak, or be compelled to hand over.
 
 The **embed loader** (`public/embed.js`) is what makes the origin check meaningful:
 it runs in the *parent* page, calls `/api/session/[botId]` from there (so the browser
@@ -140,7 +142,7 @@ Everything is scoped to an **organization**:
 
 - A user belongs to an org via a `member` row (with a role). `requireContext()`
   returns the active org for every request.
-- **Bots, conversations, messages, API keys, credits, and members** are all
+- **Bots, usage events, API keys, credits, and members** are all
   org-scoped. Dashboard reads and every server action (`app/(dash)/actions.ts`) check
   org ownership before touching a row.
 - **Private bots** are reachable only by members of the owning org, enforced in the
@@ -164,6 +166,7 @@ Defense in depth, layer by layer:
 | Tenant isolation | Org checks on every read + server action | `app/(dash)/actions.ts`, routes |
 | Input validation | 4000-char message cap; Zod on all server actions | routes, actions |
 | Credit metering | 1 credit per message; 402 when drained | `lib/credits.ts` |
+| No message storage | Chat text is never persisted; only content-free usage counts | `lib/store.ts` |
 
 Two independent adversarial reviews were run during development; the confirmed
 findings (a cross-tenant private-bot bypass, an SSRF hole, an invite
@@ -181,16 +184,15 @@ erDiagram
   organization ||--o{ apiKey : owns
   organization ||--o{ creditTxn : ledger
   user ||--o{ member : joins
-  bot ||--o{ conversation : has
-  conversation ||--o{ message : has
+  bot ||--o{ usageEvent : logs
 ```
 
 - **better-auth tables**: `user`, `session`, `account`, `verification`.
 - **org plugin**: `organization` (white-label fields + `credits`), `member`,
   `invitation`.
-- **app tables**: `bot` (webhook, branding, limits, widget options), `conversation`
-  (unique on bot+session), `message` (with a `seq` bigserial for ordering), `apiKey`,
-  `creditTxn` (credit ledger).
+- **app tables**: `bot` (webhook, branding, limits, widget options), `usageEvent`
+  (content-free stats -- bot id, anonymous session id, timestamp; **no message
+  text**), `apiKey`, `creditTxn` (credit ledger).
 
 Schema lives in `lib/db/schema.ts`; the client (postgres.js, `prepare:false` for the
 Neon pooler) in `lib/db/index.ts`. Push it with `npm run db:push`.
@@ -210,9 +212,9 @@ Neon pooler) in `lib/db/index.ts`. Push it with `npm run db:push`.
 - **Public vs private bots**: anonymous visitors vs org-member-only.
 - **Billing**: message credits (1 credit = 1 message), a packages page, and a ledger.
   Stripe-ready (`STRIPE_SECRET_KEY`); dev top-up otherwise.
-- **Analytics**: a 14-day chart + per-bot breakdown (`lib/analytics.ts`).
-- **MCP server**: `/api/mcp` exposes list_bots, create_bot, update_bot, get_analytics,
-  list_conversations to Claude/Cursor, authenticated by an org API key.
+- **Analytics (stats only)**: message/session counts, a 14-day chart, and a per-bot breakdown (`lib/analytics.ts`) -- all derived from content-free usage events, never from stored chat text.
+- **MCP server**: `/api/mcp` exposes list_bots, create_bot, update_bot, and
+  get_analytics to Claude/Cursor, authenticated by an org API key.
 - **White-label**: brand name, hide the "Protected by ChatLayer" footer, custom
   domain field.
 - **Theme**: light/dark toggle; dark is the BMW-M near-black look.
@@ -226,7 +228,7 @@ app/
   page.tsx                     landing page (marketing + live demo)
   (auth)/login, signup         auth pages
   (dash)/                      dashboard (layout guards via requireContext)
-    dashboard, analytics, bots, conversations, billing, settings
+    dashboard, analytics, bots, billing, settings
     actions.ts                 server actions (all org-scoped, Zod-validated)
   widget/[botId]/              the embeddable chat page (iframe target)
   docs/                        in-app quickstart docs
@@ -245,7 +247,7 @@ lib/
   bots.ts, apikeys.ts          bot CRUD + API key management
   config.ts, token.ts          origin/IP/CORS helpers + HMAC chat tokens
   ratelimit.ts, ssrf.ts        rate limiting + SSRF guard
-  store.ts, history.ts         conversation storage + queries
+  store.ts                     usage-event recording (stats only, no message text)
   analytics.ts, credits.ts     stats + billing
   stream.ts                    upstream reply parser
 public/embed.js                the one-tag embed loader

@@ -4,7 +4,7 @@ import { rateLimit } from "@/lib/ratelimit";
 import { verifySession } from "@/lib/token";
 import { getBot, isOrgMember } from "@/lib/bots";
 import { validateApiKey } from "@/lib/apikeys";
-import { recordExchange } from "@/lib/store";
+import { recordUsage } from "@/lib/store";
 import { assertPublicHost } from "@/lib/ssrf";
 import { consumeCredit } from "@/lib/credits";
 import { parseDelta } from "@/lib/stream";
@@ -139,7 +139,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         push(FALLBACK);
       }
       if (!full) push(FALLBACK);
-      await recordExchange(bot.id, sid, userId, clean, full).catch(() => {});
+      // Stats only: record a content-free usage event. Never store message text.
+      await recordUsage(bot.id, sid).catch(() => {});
       controller.close();
     },
   });

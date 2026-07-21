@@ -64,7 +64,7 @@ export default function DocsPage() {
   }
 }`}</code>
           </pre>
-          <p className="mt-2 text-sm text-neutral-400">Tools: list_bots, create_bot, update_bot, get_analytics, list_conversations.</p>
+          <p className="mt-2 text-sm text-neutral-400">Tools: list_bots, create_bot, update_bot, get_analytics.</p>
         </section>
 
         <section className={section}>
@@ -74,7 +74,7 @@ export default function DocsPage() {
             <li>&bull; <strong>Markdown</strong> rendering in replies (bold, lists, code, links), XSS-sanitized.</li>
             <li>&bull; <strong>Security</strong>: hidden webhook, per-bot rate limits, origin allowlist, SSRF protection.</li>
             <li>&bull; <strong>Customization</strong>: branding, RTL layout, consent screen, custom CSS, suggested prompts.</li>
-            <li>&bull; <strong>SaaS</strong>: teams, conversation history, analytics, white-label, message credits.</li>
+            <li>&bull; <strong>SaaS</strong>: teams, usage analytics, white-label, message credits.</li>
           </ul>
         </section>
       </div>

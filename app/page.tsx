@@ -8,7 +8,7 @@ const FEATURES: Array<[string, string]> = [
   ["Hidden webhooks", "Each bot's n8n URL lives server-side only. Visitors never see it, so nobody can scrape or hammer it directly."],
   ["Rate limiting", "Per-session and per-IP token buckets, tuned per bot. Abuse gets a 429 before it ever reaches n8n."],
   ["Real authentication", "Email + SSO accounts, signed sessions, org-scoped API keys. Public or private, per bot."],
-  ["Multi-tenant SaaS", "Organizations, teams, conversation history, analytics, and white-label branding built in."],
+  ["Multi-tenant SaaS", "Organizations, teams, usage analytics, and white-label branding built in."],
 ];
 
 const cta = "inline-flex items-center justify-center rounded-[8px] bg-[#1c69d4] px-6 py-3 text-xs font-bold uppercase tracking-[1.5px] text-white transition-colors hover:bg-[#0653b6]";
@@ -47,7 +47,7 @@ export default async function Home() {
           <div className="m-stripe mt-6 w-40" />
           <p className="mt-6 max-w-xl text-lg font-light leading-relaxed text-neutral-300">
             A branded chat frontend and security gateway for n8n Chat workflows.
-            Manage many bots, store conversations, gate access with real auth, and
+            Manage many bots, gate access with real auth, and
             ship a white-label widget your customers embed with one script tag.
           </p>
 

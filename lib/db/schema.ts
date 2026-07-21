@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigserial, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 const uid = () => crypto.randomUUID();
 const now = () => new Date();
@@ -123,29 +123,18 @@ export const bot = pgTable("bot", {
   createdAt: ts("createdAt").notNull().$defaultFn(now),
 });
 
-export const conversation = pgTable(
-  "conversation",
+// Content-free usage events: one row per handled user message. Powers the
+// stats/analytics (counts, per-day, per-bot, distinct sessions) without ever
+// storing message text. ChatLayer is a secure UI + router, not a chat store.
+export const usageEvent = pgTable(
+  "usageEvent",
   {
     id: text("id").primaryKey().$defaultFn(uid),
     botId: text("botId").notNull().references(() => bot.id, { onDelete: "cascade" }),
     sessionId: text("sessionId").notNull(),
-    userId: text("userId"),
     createdAt: ts("createdAt").notNull().$defaultFn(now),
   },
-  (t) => [uniqueIndex("conv_bot_session_idx").on(t.botId, t.sessionId)],
-);
-
-export const message = pgTable(
-  "message",
-  {
-    id: text("id").primaryKey().$defaultFn(uid),
-    seq: bigserial("seq", { mode: "number" }).notNull(),
-    conversationId: text("conversationId").notNull().references(() => conversation.id, { onDelete: "cascade" }),
-    role: text("role").notNull(),
-    content: text("content").notNull(),
-    createdAt: ts("createdAt").notNull().$defaultFn(now),
-  },
-  (t) => [index("msg_conv_idx").on(t.conversationId)],
+  (t) => [index("usage_bot_idx").on(t.botId), index("usage_created_idx").on(t.createdAt)],
 );
 
 export const apiKey = pgTable("apiKey", {

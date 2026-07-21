@@ -2,8 +2,9 @@
 
 A secure, branded, multi-tenant chat frontend and gateway for n8n Chat workflows.
 Your n8n webhooks stay server-side; every message is origin-checked, authenticated,
-and rate-limited before it reaches your workflow. Manage many bots, store
-conversations, gate access with real auth, and embed a white-label widget anywhere.
+and rate-limited before it reaches your workflow. Manage many bots, gate access
+with real auth, and embed a white-label widget anywhere. Chat content is never
+stored -- ChatLayer keeps only usage stats.
 
 **New here?** See [ARCHITECTURE.md](ARCHITECTURE.md) for a full walkthrough of how the app works.
 
@@ -28,7 +29,7 @@ npm run dev                    # http://localhost:3000
 ```
 
 Sign up at `/signup` -> a workspace (organization) is created automatically ->
-create bots, view conversations and analytics, manage team + API keys in the dashboard.
+create bots, view analytics, manage team + API keys in the dashboard.
 
 ## What's included
 
@@ -43,7 +44,7 @@ create bots, view conversations and analytics, manage team + API keys in the das
 **V2 - SaaS**
 - Auth: email/password + optional Google SSO (better-auth), signed sessions
 - Multiple bots per workspace, each with its own webhook, branding, and limits
-- Conversation + message storage, viewable in the dashboard
+- No message storage: only content-free usage counts are kept (stats, not chat history)
 - Analytics overview (bots, conversations, messages today/total)
 - Public bots (anonymous visitors) vs private bots (require a signed-in user)
 
@@ -108,7 +109,7 @@ Email + Google sign-ins with the same address link to one account (Google verifi
 
 - **Per-bot hidden webhook** - the browser talks only to `/api/chat/<botId>`; the n8n URL is a DB field, never sent to the client.
 - **Authentication** - three modes on the chat route: org-scoped API key (`X-API-Key`) > signed-in better-auth user > anonymous HMAC token bound to one bot (public bots only). Private bots require a user.
-- **Multi-tenant isolation** - bots, conversations, keys, and members are org-scoped; dashboard reads and every server action check org ownership before touching a row.
+- **Multi-tenant isolation** - bots, usage events, keys, and members are org-scoped; dashboard reads and every server action check org ownership before touching a row.
 - **Rate limiting** - token bucket per session and per IP, per bot, with spoof-resistant IP resolution.
 - **Origin + CORS** - per-bot domain allowlist; `/widget/*` is frameable, everything else is `X-Frame-Options: DENY`.
 - **Input validation** - messages capped at 4000 chars; server actions validated with Zod; upstream calls time out.

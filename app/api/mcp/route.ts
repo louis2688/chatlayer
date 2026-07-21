@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateApiKey } from "@/lib/apikeys";
 import { createBot, listBots, updateBot } from "@/lib/bots";
 import { orgStats } from "@/lib/analytics";
-import { listConversations } from "@/lib/history";
 import { assertHttpUrl } from "@/lib/ssrf";
 
 export const runtime = "nodejs";
@@ -45,7 +44,6 @@ const TOOLS = [
     },
   },
   { name: "get_analytics", description: "Get workspace usage stats.", inputSchema: { type: "object", properties: {} } },
-  { name: "list_conversations", description: "List recent conversations.", inputSchema: { type: "object", properties: {} } },
 ];
 
 function textResult(o: unknown) {
@@ -85,8 +83,6 @@ async function callTool(orgId: string, name: string, args: Record<string, unknow
     }
     case "get_analytics":
       return textResult(await orgStats(orgId));
-    case "list_conversations":
-      return textResult((await listConversations(orgId, 20)).map((c) => ({ id: c.id, bot: c.botName, messages: c.messages, last: c.lastMessage })));
     default:
       return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
   }

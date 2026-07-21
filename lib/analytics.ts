@@ -46,12 +46,12 @@ export async function dailyMessages(orgId: string, days = 14): Promise<{ day: st
   const cutoff = new Date(Date.now() - (days - 1) * 86400_000);
   cutoff.setHours(0, 0, 0, 0);
   const rows = await db
-    .select({ day: sql<string>`date(${message.createdAt}, 'unixepoch')`, n: count() })
+    .select({ day: sql<string>`to_char(${message.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`, n: count() })
     .from(message)
     .innerJoin(conversation, eq(message.conversationId, conversation.id))
     .innerJoin(bot, eq(conversation.botId, bot.id))
     .where(and(eq(bot.organizationId, orgId), gte(message.createdAt, cutoff)))
-    .groupBy(sql`date(${message.createdAt}, 'unixepoch')`);
+    .groupBy(sql`to_char(${message.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`);
   const byDay = new Map(rows.map((r) => [r.day, Number(r.n)]));
   const out: { day: string; n: number }[] = [];
   for (let i = 0; i < days; i++) {

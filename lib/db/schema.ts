@@ -1,33 +1,34 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { bigserial, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 const uid = () => crypto.randomUUID();
 const now = () => new Date();
+const ts = (name: string) => timestamp(name, { mode: "date", withTimezone: true });
 
 // --- better-auth core ---
-export const user = sqliteTable("user", {
+export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: integer("emailVerified", { mode: "boolean" }).notNull().default(false),
+  emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
-  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(now),
+  createdAt: ts("createdAt").notNull().$defaultFn(now),
+  updatedAt: ts("updatedAt").notNull().$defaultFn(now),
 });
 
-export const session = sqliteTable("session", {
+export const session = pgTable("session", {
   id: text("id").primaryKey(),
-  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
+  expiresAt: ts("expiresAt").notNull(),
   token: text("token").notNull().unique(),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
-  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(now),
+  createdAt: ts("createdAt").notNull().$defaultFn(now),
+  updatedAt: ts("updatedAt").notNull().$defaultFn(now),
   ipAddress: text("ipAddress"),
   userAgent: text("userAgent"),
   userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
   activeOrganizationId: text("activeOrganizationId"),
 });
 
-export const account = sqliteTable("account", {
+export const account = pgTable("account", {
   id: text("id").primaryKey(),
   accountId: text("accountId").notNull(),
   providerId: text("providerId").notNull(),
@@ -35,123 +36,124 @@ export const account = sqliteTable("account", {
   accessToken: text("accessToken"),
   refreshToken: text("refreshToken"),
   idToken: text("idToken"),
-  accessTokenExpiresAt: integer("accessTokenExpiresAt", { mode: "timestamp" }),
-  refreshTokenExpiresAt: integer("refreshTokenExpiresAt", { mode: "timestamp" }),
+  accessTokenExpiresAt: ts("accessTokenExpiresAt"),
+  refreshTokenExpiresAt: ts("refreshTokenExpiresAt"),
   scope: text("scope"),
   password: text("password"),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
-  updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull().$defaultFn(now),
+  createdAt: ts("createdAt").notNull().$defaultFn(now),
+  updatedAt: ts("updatedAt").notNull().$defaultFn(now),
 });
 
-export const verification = sqliteTable("verification", {
+export const verification = pgTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
-  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(now),
-  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(now),
+  expiresAt: ts("expiresAt").notNull(),
+  createdAt: ts("createdAt").$defaultFn(now),
+  updatedAt: ts("updatedAt").$defaultFn(now),
 });
 
-// --- organization plugin (also powers V3 teams / white-label) ---
-export const organization = sqliteTable("organization", {
+// --- organization plugin ---
+export const organization = pgTable("organization", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").unique(),
   logo: text("logo"),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
+  createdAt: ts("createdAt").notNull().$defaultFn(now),
   metadata: text("metadata"),
-  // V3 white-label
   brandName: text("brandName"),
-  hideBranding: integer("hideBranding", { mode: "boolean" }).notNull().default(false),
+  hideBranding: boolean("hideBranding").notNull().default(false),
   customDomain: text("customDomain"),
-  // billing: message credits (1 credit = 1 user message)
   credits: integer("credits").notNull().default(100),
 });
 
-export const creditTxn = sqliteTable("creditTxn", {
+export const creditTxn = pgTable("creditTxn", {
   id: text("id").primaryKey().$defaultFn(uid),
   organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
   delta: integer("delta").notNull(),
   reason: text("reason").notNull(),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
+  createdAt: ts("createdAt").notNull().$defaultFn(now),
 });
 
-export const member = sqliteTable("member", {
-  id: text("id").primaryKey(),
-  organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
-  userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
-  role: text("role").notNull().default("member"),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
-});
+export const member = pgTable(
+  "member",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("userId").notNull().references(() => user.id, { onDelete: "cascade" }),
+    role: text("role").notNull().default("member"),
+    createdAt: ts("createdAt").notNull().$defaultFn(now),
+  },
+  (t) => [uniqueIndex("member_org_user_idx").on(t.organizationId, t.userId)],
+);
 
-export const invitation = sqliteTable("invitation", {
+export const invitation = pgTable("invitation", {
   id: text("id").primaryKey(),
   organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
   email: text("email").notNull(),
   role: text("role"),
   status: text("status").notNull().default("pending"),
-  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
+  expiresAt: ts("expiresAt").notNull(),
   inviterId: text("inviterId").notNull().references(() => user.id, { onDelete: "cascade" }),
 });
 
 // --- app domain ---
-export const bot = sqliteTable("bot", {
+export const bot = pgTable("bot", {
   id: text("id").primaryKey().$defaultFn(uid),
   organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   welcome: text("welcome").notNull().default("Hi! How can I help you today?"),
   color: text("color").notNull().default("#10b981"),
   logoUrl: text("logoUrl"),
-  suggestedPrompts: text("suggestedPrompts", { mode: "json" }).notNull().$type<string[]>().default(sql`'[]'`),
+  suggestedPrompts: jsonb("suggestedPrompts").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   webhookUrl: text("webhookUrl").notNull(),
   webhookAuthHeader: text("webhookAuthHeader"),
   webhookAuthValue: text("webhookAuthValue"),
-  isPublic: integer("isPublic", { mode: "boolean" }).notNull().default(true),
-  allowedOrigins: text("allowedOrigins", { mode: "json" }).notNull().$type<string[]>().default(sql`'[]'`),
+  isPublic: boolean("isPublic").notNull().default(true),
+  allowedOrigins: jsonb("allowedOrigins").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   ratePerSession: integer("ratePerSession").notNull().default(20),
   ratePerIp: integer("ratePerIp").notNull().default(60),
-  // widget-parity options
-  rtl: integer("rtl", { mode: "boolean" }).notNull().default(false),
+  rtl: boolean("rtl").notNull().default(false),
   customCss: text("customCss"),
-  consentRequired: integer("consentRequired", { mode: "boolean" }).notNull().default(false),
+  consentRequired: boolean("consentRequired").notNull().default(false),
   consentText: text("consentText"),
-  allowFileUpload: integer("allowFileUpload", { mode: "boolean" }).notNull().default(false),
+  allowFileUpload: boolean("allowFileUpload").notNull().default(false),
   maxFileSizeMb: integer("maxFileSizeMb").notNull().default(5),
-  allowedFileTypes: text("allowedFileTypes", { mode: "json" }).notNull().$type<string[]>().default(sql`'[]'`),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
+  allowedFileTypes: jsonb("allowedFileTypes").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  createdAt: ts("createdAt").notNull().$defaultFn(now),
 });
 
-export const conversation = sqliteTable(
+export const conversation = pgTable(
   "conversation",
   {
     id: text("id").primaryKey().$defaultFn(uid),
     botId: text("botId").notNull().references(() => bot.id, { onDelete: "cascade" }),
     sessionId: text("sessionId").notNull(),
     userId: text("userId"),
-    createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
+    createdAt: ts("createdAt").notNull().$defaultFn(now),
   },
   (t) => [uniqueIndex("conv_bot_session_idx").on(t.botId, t.sessionId)],
 );
 
-export const message = sqliteTable(
+export const message = pgTable(
   "message",
   {
     id: text("id").primaryKey().$defaultFn(uid),
+    seq: bigserial("seq", { mode: "number" }).notNull(),
     conversationId: text("conversationId").notNull().references(() => conversation.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
     content: text("content").notNull(),
-    createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
+    createdAt: ts("createdAt").notNull().$defaultFn(now),
   },
   (t) => [index("msg_conv_idx").on(t.conversationId)],
 );
 
-// Org-scoped keys for programmatic (server-to-server) chat API access.
-export const apiKey = sqliteTable("apiKey", {
+export const apiKey = pgTable("apiKey", {
   id: text("id").primaryKey().$defaultFn(uid),
   organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   hashedKey: text("hashedKey").notNull().unique(),
   prefix: text("prefix").notNull(),
-  createdAt: integer("createdAt", { mode: "timestamp" }).notNull().$defaultFn(now),
-  lastUsedAt: integer("lastUsedAt", { mode: "timestamp" }),
+  createdAt: ts("createdAt").notNull().$defaultFn(now),
+  lastUsedAt: ts("lastUsedAt"),
 });

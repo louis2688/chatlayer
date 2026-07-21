@@ -1,12 +1,11 @@
-import { drizzle } from "drizzle-orm/libsql";
-import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "./schema";
 
-const url = process.env.DATABASE_URL || "file:local.db";
-const authToken = process.env.DATABASE_AUTH_TOKEN;
-
-// libSQL: local `file:` now, Turso URL + token for cloud later (no code change).
-const client = createClient(authToken ? { url, authToken } : { url });
+const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+// prepare:false is required for pooled (transaction-mode) connections such as
+// Neon's pooler or Supabase's PgBouncer.
+const client = postgres(url!, { prepare: false });
 
 export const db = drizzle(client, { schema });
 export { schema };

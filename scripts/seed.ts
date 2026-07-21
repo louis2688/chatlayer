@@ -1,9 +1,10 @@
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { eq } from "drizzle-orm";
 import { organization, bot } from "../lib/db/schema.ts";
 
-const client = createClient({ url: process.env.DATABASE_URL || "file:local.db" });
+const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+const client = postgres(url!, { prepare: false });
 const db = drizzle(client, { schema: { organization, bot } });
 const webhook = process.env.N8N_WEBHOOK_URL || "http://localhost:5678/webhook/mock/chat";
 
@@ -26,4 +27,5 @@ if (!existing) {
 } else {
   console.log("demo bot already exists");
 }
+await client.end();
 process.exit(0);

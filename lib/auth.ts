@@ -16,7 +16,7 @@ const google =
 
 export const auth = betterAuth({
   appName: "ChatLayer",
-  database: drizzleAdapter(db, { provider: "sqlite", schema }),
+  database: drizzleAdapter(db, { provider: "pg", schema }),
   emailAndPassword: { enabled: true },
   user: { deleteUser: { enabled: true } },
   ...(google ? { socialProviders: google } : {}),

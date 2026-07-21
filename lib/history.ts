@@ -19,7 +19,7 @@ export async function listConversations(orgId: string, limit = 100): Promise<Con
       createdAt: conversation.createdAt,
       botName: bot.name,
       messages: sql<number>`(select count(*) from ${message} where ${message.conversationId} = ${conversation.id})`,
-      lastMessage: sql<string | null>`(select ${message.content} from ${message} where ${message.conversationId} = ${conversation.id} order by rowid desc limit 1)`,
+      lastMessage: sql<string | null>`(select ${message.content} from ${message} where ${message.conversationId} = ${conversation.id} order by ${message.seq} desc limit 1)`,
     })
     .from(conversation)
     .innerJoin(bot, eq(conversation.botId, bot.id))
@@ -37,6 +37,6 @@ export async function getConversationMessages(orgId: string, conversationId: str
     .where(and(eq(conversation.id, conversationId), eq(bot.organizationId, orgId)))
     .limit(1);
   if (conv.length === 0) return null;
-  const msgs = await db.select().from(message).where(eq(message.conversationId, conversationId)).orderBy(sql`rowid`);
+  const msgs = await db.select().from(message).where(eq(message.conversationId, conversationId)).orderBy(message.seq);
   return { ...conv[0], messages: msgs };
 }

@@ -27,14 +27,21 @@ export async function requireContext(): Promise<ActiveContext> {
 
   let m = await db.query.member.findFirst({ where: eq(member.userId, user.id) });
   if (!m) {
-    const orgId = randomUUID();
+    // Deterministic slug + conflict-safe inserts so concurrent calls (layout +
+    // page both run requireContext) don't collide when creating the first org.
     const base = (user.name || user.email.split("@")[0]).trim();
-    await db.insert(organization).values({
-      id: orgId,
-      name: `${base}'s workspace`,
-      slug: `w-${user.id.slice(0, 8)}`,
-    });
-    await db.insert(member).values({ id: randomUUID(), organizationId: orgId, userId: user.id, role: "owner" });
+    const slug = `w-${user.id.slice(0, 8)}`;
+    await db
+      .insert(organization)
+      .values({ id: randomUUID(), name: `${base}'s workspace`, slug })
+      .onConflictDoNothing({ target: organization.slug });
+    const org = await db.query.organization.findFirst({ where: eq(organization.slug, slug) });
+    if (org) {
+      await db
+        .insert(member)
+        .values({ id: randomUUID(), organizationId: org.id, userId: user.id, role: "owner" })
+        .onConflictDoNothing({ target: [member.organizationId, member.userId] });
+    }
     m = await db.query.member.findFirst({ where: eq(member.userId, user.id) });
   }
 

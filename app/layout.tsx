@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const display = Bricolage_Grotesque({ variable: "--font-display", subsets: ["latin"] });
-const body = Instrument_Sans({ variable: "--font-body", subsets: ["latin"] });
+// Inter is the template's specified substitute for BMW Type Next Latin.
+const inter = Inter({ variable: "--font-body", subsets: ["latin"], weight: ["300", "400", "500", "700"] });
 const mono = JetBrains_Mono({ variable: "--font-jbmono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${display.variable} ${body.variable} ${mono.variable} h-full antialiased`}
+      className={`${inter.variable} ${mono.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

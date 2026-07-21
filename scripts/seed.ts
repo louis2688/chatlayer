@@ -17,7 +17,7 @@ if (!existing) {
     organizationId: "demo-org",
     name: "ChatLayer Support",
     welcome: "Hi! I'm ChatLayer Support. Ask me anything about your order, our products, or pricing.",
-    color: "#10b981",
+    color: "#1c69d4",
     suggestedPrompts: ["What can you do?", "Pricing plans", "Talk to a human"],
     webhookUrl: webhook,
     isPublic: true,

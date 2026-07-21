@@ -18,7 +18,7 @@ export default function BotForm({ bot }: { bot?: Bot }) {
         </div>
         <div>
           <label className={label} htmlFor="color">Brand color</label>
-          <input id="color" name="color" type="color" defaultValue={bot?.color ?? "#10b981"} className="h-10 w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900/60" />
+          <input id="color" name="color" type="color" defaultValue={bot?.color ?? "#1c69d4"} className="h-10 w-full rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900/60" />
         </div>
       </div>
 

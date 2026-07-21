@@ -1,5 +1,5 @@
 /* ChatLayer embed loader. Usage:
-   <script src="https://host/embed.js" data-bot="BOT_ID" data-color="#10b981" defer></script>
+   <script src="https://host/embed.js" data-bot="BOT_ID" data-color="#1c69d4" defer></script>
    Mints an origin-validated session in the PARENT context (so the bot's domain
    allowlist is enforced), then hands the token to the widget iframe via #hash. */
 (function () {
@@ -9,7 +9,7 @@
   var host = new URL(script.src).origin;
   var botId = script.getAttribute("data-bot");
   if (!botId) { console.error("[ChatLayer] missing data-bot attribute"); return; }
-  var color = script.getAttribute("data-color") || "#10b981";
+  var color = script.getAttribute("data-color") || "#1c69d4";
   var side = script.getAttribute("data-position") === "left" ? "left" : "right";
 
   var chatIcon = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';

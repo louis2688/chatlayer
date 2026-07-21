@@ -22,7 +22,7 @@ const TOOLS = [
         name: { type: "string" },
         webhookUrl: { type: "string", description: "n8n Chat Trigger webhook URL" },
         welcome: { type: "string" },
-        color: { type: "string", description: "hex color, e.g. #10b981" },
+        color: { type: "string", description: "hex color, e.g. #1c69d4" },
         isPublic: { type: "boolean" },
       },
       required: ["name", "webhookUrl"],

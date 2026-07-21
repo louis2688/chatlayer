@@ -47,6 +47,7 @@ export default function Sidebar({ orgName, userEmail }: { orgName: string; userE
     <aside
       className={`hidden shrink-0 flex-col border-r border-neutral-200 p-3 dark:border-neutral-800 sm:flex ${collapsed ? "w-16" : "w-60"}`}
     >
+      <div className="m-stripe -mx-3 -mt-3 mb-3" />
       <div className="flex items-center justify-between">
         {!collapsed && (
           <Link href="/dashboard" className="font-display px-2 text-lg font-semibold">

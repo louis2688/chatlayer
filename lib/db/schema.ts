@@ -103,7 +103,7 @@ export const bot = pgTable("bot", {
   organizationId: text("organizationId").notNull().references(() => organization.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   welcome: text("welcome").notNull().default("Hi! How can I help you today?"),
-  color: text("color").notNull().default("#10b981"),
+  color: text("color").notNull().default("#1c69d4"),
   logoUrl: text("logoUrl"),
   suggestedPrompts: jsonb("suggestedPrompts").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   webhookUrl: text("webhookUrl").notNull(),

@@ -32,7 +32,7 @@ export default function DocsPage() {
           <h2 className={h2}>2. Embed it</h2>
           <p className="mt-2 text-sm text-neutral-400">Paste one script tag on any allowed site:</p>
           <pre className="mt-2 overflow-x-auto rounded-lg border border-white/10 bg-black/40 p-4 font-mono text-sm text-emerald-300">
-            <code>{`<script src="https://your-host/embed.js" data-bot="BOT_ID" data-color="#10b981" defer></script>`}</code>
+            <code>{`<script src="https://your-host/embed.js" data-bot="BOT_ID" data-color="#1c69d4" defer></script>`}</code>
           </pre>
           <p className="mt-2 text-sm text-neutral-400">
             Attributes: <span className={code}>data-bot</span> (required), <span className={code}>data-color</span>, <span className={code}>data-position=&quot;left&quot;</span>.

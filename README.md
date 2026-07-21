@@ -5,6 +5,8 @@ Your n8n webhooks stay server-side; every message is origin-checked, authenticat
 and rate-limited before it reaches your workflow. Manage many bots, store
 conversations, gate access with real auth, and embed a white-label widget anywhere.
 
+**New here?** See [ARCHITECTURE.md](ARCHITECTURE.md) for a full walkthrough of how the app works.
+
 ```
 visitor / customer app
         |

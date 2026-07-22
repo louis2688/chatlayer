@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { setTimeout as sleep } from "node:timers/promises";
 import { issueSession, verifySession } from "../lib/token.ts";
 import { rateLimit } from "../lib/ratelimit.ts";
-import { clientIp, intEnv } from "../lib/config.ts";
+import { clientIp, devTopUpAllowed, intEnv } from "../lib/config.ts";
 import { assertHttpUrl } from "../lib/ssrf.ts";
 import { parseDelta } from "../lib/stream.ts";
 
@@ -91,5 +91,34 @@ assert.equal(parseDelta("data: [DONE]"), "");
 assert.equal(parseDelta('{"type":"begin"}'), "", "control frame -> empty");
 assert.equal(parseDelta(""), "");
 assert.equal(parseDelta("plain token"), "plain token");
+
+// --- dev credit top-up gate ---
+// Granting credits without payment must never be reachable in production.
+{
+  const env = process.env;
+  const restore = { n: env.NODE_ENV, a: env.ALLOW_DEV_TOPUP, s: env.STRIPE_SECRET_KEY };
+  const set = (node: string, allow?: string, stripe?: string) => {
+    Object.defineProperty(env, "NODE_ENV", { value: node, configurable: true, writable: true, enumerable: true });
+    if (allow === undefined) delete env.ALLOW_DEV_TOPUP; else env.ALLOW_DEV_TOPUP = allow;
+    if (stripe === undefined) delete env.STRIPE_SECRET_KEY; else env.STRIPE_SECRET_KEY = stripe;
+  };
+
+  set("development");
+  assert.equal(devTopUpAllowed(), true, "dev: top-up allowed");
+  set("production");
+  assert.equal(devTopUpAllowed(), false, "production: top-up REFUSED");
+  set("production", "true");
+  assert.equal(devTopUpAllowed(), true, "production + explicit opt-in: allowed");
+  set("production", "yes");
+  assert.equal(devTopUpAllowed(), false, "opt-in must be exactly true");
+  set("development", undefined, "sk_live_x");
+  assert.equal(devTopUpAllowed(), false, "stripe configured: real payments take over");
+  set("production", "true", "sk_live_x");
+  assert.equal(devTopUpAllowed(), false, "stripe wins over the escape hatch");
+
+  Object.defineProperty(env, "NODE_ENV", { value: restore.n, configurable: true, writable: true, enumerable: true });
+  if (restore.a === undefined) delete env.ALLOW_DEV_TOPUP; else env.ALLOW_DEV_TOPUP = restore.a;
+  if (restore.s === undefined) delete env.STRIPE_SECRET_KEY; else env.STRIPE_SECRET_KEY = restore.s;
+}
 
 console.log("selfcheck: all assertions passed");

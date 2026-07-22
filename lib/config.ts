@@ -7,6 +7,17 @@ export function intEnv(name: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+// Instant credit top-up grants credits with NO payment. It is a development
+// affordance and must never be reachable in production, where any signed-in
+// user could mint themselves unlimited credits. Real payments take over once
+// STRIPE_SECRET_KEY is set; ALLOW_DEV_TOPUP=true is a deliberate escape hatch
+// for demo/preview deploys.
+export function devTopUpAllowed(): boolean {
+  if (process.env.STRIPE_SECRET_KEY) return false;
+  if ((process.env.ALLOW_DEV_TOPUP ?? "").trim() === "true") return true;
+  return process.env.NODE_ENV !== "production";
+}
+
 function normalize(o: string): string {
   return o.trim().replace(/\/$/, "");
 }

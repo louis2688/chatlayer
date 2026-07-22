@@ -11,6 +11,7 @@ import { createApiKey, revokeApiKey } from "@/lib/apikeys";
 import { PACKAGES, addCredits } from "@/lib/credits";
 import { addIpBan, removeIpBan } from "@/lib/ipbans";
 import { assertHttpUrl } from "@/lib/ssrf";
+import { devTopUpAllowed } from "@/lib/config";
 import { requireContext } from "@/lib/server-auth";
 
 function lines(v: FormDataEntryValue | null): string[] {
@@ -141,6 +142,9 @@ export async function inviteMemberAction(formData: FormData) {
 // redirect here instead, fulfilling via webhook. Not wired without keys.
 export async function purchaseCreditsAction(formData: FormData) {
   const { orgId } = await requireContext();
+  // Server-side gate. Hiding the button is not enough: this is a POST endpoint
+  // any signed-in user can call directly.
+  if (!devTopUpAllowed()) throw new Error("Purchases are not available yet.");
   const pkg = PACKAGES.find((p) => p.id === String(formData.get("packageId")));
   if (!pkg) throw new Error("Unknown package");
   await addCredits(orgId, pkg.credits, `purchase:${pkg.id}`);

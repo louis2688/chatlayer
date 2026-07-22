@@ -53,13 +53,13 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (authed && member) {
       userId = authed.user.id;
       sid = `user:${userId}`;
-    } else if (bot.isPublic) {
+    } else {
+      // A bot-bound token is the credential for both access modes: lead capture
+      // bots only get one issued after the visitor submits their details.
       const header = req.headers.get("authorization") ?? "";
       const token = verifySession(header.startsWith("Bearer ") ? header.slice(7) : null);
       if (!token || token.botId !== bot.id) return bad("invalid_session", 401);
       sid = token.sid;
-    } else {
-      return bad("auth_required", 401);
     }
   }
 

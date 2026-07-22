@@ -27,7 +27,7 @@ export default async function BotEditorPage({ params }: { params: Promise<{ botI
 
       <div className="mt-6 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 p-6">
         <h2 className="text-lg font-semibold">Embed</h2>
-        <p className="mb-3 mt-1 text-sm text-neutral-600 dark:text-neutral-400">Paste on any allowed site. {bot.isPublic ? "" : "Private bot: users must be signed in."}</p>
+        <p className="mb-3 mt-1 text-sm text-neutral-600 dark:text-neutral-400">Paste on any allowed site. {bot.allowAnonymous ? "" : "Visitors enter their details before the chat starts."}</p>
         <CopyField value={snippet} />
         <p className="mt-2 text-xs text-neutral-500">Direct link: <Link href={`/widget/${bot.id}`} className="text-emerald-400 hover:underline">/widget/{bot.id}</Link></p>
       </div>

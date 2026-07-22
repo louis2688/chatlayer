@@ -59,12 +59,28 @@ export default function BotForm({ bot }: { bot?: Bot }) {
           <input id="ratePerIp" name="ratePerIp" type="number" min={1} max={5000} defaultValue={bot?.ratePerIp ?? 60} className={field} />
         </div>
         <div className="flex items-end">
-          <label className="flex items-center gap-2 pb-2 text-sm text-neutral-700 dark:text-neutral-300 dark:text-neutral-300">
-            <input type="checkbox" name="isPublic" defaultChecked={bot ? bot.isPublic : true} className="h-4 w-4 rounded border-neutral-300 dark:border-neutral-600 bg-neutral-100 dark:bg-neutral-900" />
-            Public (no login)
+          <label className="flex items-center gap-2 pb-2 text-sm text-neutral-700 dark:text-neutral-300">
+            <input type="checkbox" name="allowAnonymous" defaultChecked={bot ? bot.allowAnonymous : true} className="h-4 w-4 rounded border-neutral-300 dark:border-neutral-600 bg-neutral-100 dark:bg-neutral-900" />
+            Allow anonymous
           </label>
         </div>
       </div>
+
+      <details className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+        <summary className="cursor-pointer text-sm text-neutral-700 dark:text-neutral-300">Lead capture fields</summary>
+        <p className="mt-2 text-xs text-neutral-500">
+          Used when <strong>Allow anonymous</strong> is off: the visitor fills these in before the chat starts, and the details reach your
+          workflow as a <code>chat_started</code> event.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-4">
+          {([["leadName", "Name"], ["leadEmail", "Email"], ["leadPhone", "Phone"], ["leadMessage", "Message"]] as const).map(([n, l]) => (
+            <label key={n} className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+              <input type="checkbox" name={n} defaultChecked={bot ? bot[n] : n !== "leadPhone"} className="h-4 w-4 rounded border-neutral-300 dark:border-neutral-600 bg-neutral-100 dark:bg-neutral-900" />
+              {l}
+            </label>
+          ))}
+        </div>
+      </details>
 
       <details className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
         <summary className="cursor-pointer text-sm text-neutral-700 dark:text-neutral-300 dark:text-neutral-300">Webhook header auth (optional)</summary>

@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 const NAV: Array<[string, string]> = [
   ["quickstart", "Quickstart"],
+  ["access", "Access modes"],
   ["backend-integration", "Backend integration"],
   ["widget-api", "Chat widget API"],
   ["session-management", "Session management"],
@@ -85,13 +86,38 @@ export default function DocsPage() {
             <p className={p}>
               Create a bot in <Link href="/bots" className={link}>Bots</Link> and point it at your n8n{" "}
               <span className={strong}>Chat Trigger</span> webhook URL. That URL is stored server-side and is never sent to the browser.
-              Choose <span className={strong}>Public</span> (anonymous visitors) or <span className={strong}>Private</span> (signed-in
-              members of your workspace only). Then drop one tag on your site:
+              Choose <span className={strong}>Allow anonymous</span> (visitors chat straight away) or leave it off to
+              <span className={strong}> capture a lead</span> first. Then drop one tag on your site:
             </p>
             <pre className={pre}>
               <code>{`<script src="https://your-host/embed.js" data-bot="BOT_ID" defer></script>`}</code>
             </pre>
             <p className={p}>Add the domains that may use the bot to its origin allowlist. Anything not listed is refused a session.</p>
+          </Section>
+
+          <Section id="access" title="Access modes">
+            <p className={p}>
+              <span className={strong}>Allow anonymous</span> on: the visitor opens the widget and chats immediately. This is how most
+              site widgets run.
+            </p>
+            <p className={p}>
+              <span className={strong}>Allow anonymous</span> off: a short form appears first. Pick which of name, email, phone and message
+              are collected. Nothing reaches your workflow until it is filled in, and the details arrive as their own event:
+            </p>
+            <pre className={pre}>
+              <code>{`{
+  "action": "chatStarted",
+  "event": "chat_started",
+  "sessionId": "3f9c...",
+  "visitor": { "name": "Sarah", "email": "sarah@acme.com", "phone": null },
+  "message": "I want a demo"
+}`}</code>
+            </pre>
+            <p className={p}>
+              The gate is enforced when the session is minted, not in the widget, so posting straight at the API without the details gets
+              a <span className={code}>400</span> and no token. If a message was collected it is also sent as the first chat turn, so the
+              visitor gets a reply to what they already typed.
+            </p>
           </Section>
 
           <Section id="backend-integration" title="Backend integration">
@@ -159,7 +185,7 @@ Content-Type: application/json
             <p className={p}>
               The <span className={code}>sessionId</span> sent to n8n is what ties a conversation together, so use it as the memory key in
               your workflow. Signed-in dashboard users chat as <span className={code}>user:&lt;id&gt;</span>; server-to-server callers
-              control it themselves by passing <span className={code}>sessionId</span> in the request body. Private bots ignore anonymous
+              control it themselves by passing <span className={code}>sessionId</span> in the request body. +
               tokens entirely and require a signed-in member of the owning workspace.
             </p>
           </Section>
@@ -303,7 +329,7 @@ plain text                     // raw token`}</code>
           <Section id="security" title="Security and limits">
             <ul className="mt-2 space-y-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
               <li>&bull; <span className={strong}>Hidden webhook</span> - the n8n URL is a server-side field, never sent to the browser.</li>
-              <li>&bull; <span className={strong}>Three auth modes</span> - workspace API key, signed-in member, or an anonymous token bound to one public bot.</li>
+              <li>&bull; <span className={strong}>Three caller modes</span> - workspace API key, signed-in member, or a visitor token bound to one bot.</li>
               <li>&bull; <span className={strong}>Rate limiting</span> - token buckets per session and per IP, tuned per bot, with spoof-resistant client IP resolution.</li>
               <li>&bull; <span className={strong}>IP bans</span> - blocked addresses are refused at the gateway before any work happens.</li>
               <li>&bull; <span className={strong}>Origin allowlist</span> - only the domains you list can obtain a session.</li>

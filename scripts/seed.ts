@@ -20,7 +20,7 @@ if (!existing) {
     color: "#1c69d4",
     suggestedPrompts: ["What can you do?", "Pricing plans", "Talk to a human"],
     webhookUrl: webhook,
-    isPublic: true,
+    allowAnonymous: true,
     allowedOrigins: [],
   });
   console.log("seeded demo bot (id: demo) ->", webhook);

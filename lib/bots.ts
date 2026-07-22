@@ -10,7 +10,11 @@ export type PublicBotConfig = {
   color: string;
   logoUrl: string | null;
   suggestedPrompts: string[];
-  isPublic: boolean;
+  allowAnonymous: boolean;
+  leadName: boolean;
+  leadEmail: boolean;
+  leadPhone: boolean;
+  leadMessage: boolean;
   rtl: boolean;
   consentRequired: boolean;
   consentText: string | null;
@@ -59,7 +63,11 @@ export function publicConfig(b: Bot): PublicBotConfig {
     color: b.color,
     logoUrl: b.logoUrl,
     suggestedPrompts: b.suggestedPrompts ?? [],
-    isPublic: b.isPublic,
+    allowAnonymous: b.allowAnonymous,
+    leadName: b.leadName,
+    leadEmail: b.leadEmail,
+    leadPhone: b.leadPhone,
+    leadMessage: b.leadMessage,
     rtl: b.rtl,
     consentRequired: b.consentRequired,
     consentText: b.consentText,

@@ -22,7 +22,7 @@ const TOOLS = [
         webhookUrl: { type: "string", description: "n8n Chat Trigger webhook URL" },
         welcome: { type: "string" },
         color: { type: "string", description: "hex color, e.g. #1c69d4" },
-        isPublic: { type: "boolean" },
+        allowAnonymous: { type: "boolean" },
       },
       required: ["name", "webhookUrl"],
     },
@@ -38,7 +38,7 @@ const TOOLS = [
         webhookUrl: { type: "string" },
         welcome: { type: "string" },
         color: { type: "string" },
-        isPublic: { type: "boolean" },
+        allowAnonymous: { type: "boolean" },
       },
       required: ["botId"],
     },
@@ -54,7 +54,7 @@ async function callTool(orgId: string, name: string, args: Record<string, unknow
   switch (name) {
     case "list_bots": {
       const bots = await listBots(orgId);
-      return textResult(bots.map((b) => ({ id: b.id, name: b.name, isPublic: b.isPublic, webhookUrl: b.webhookUrl, ratePerSession: b.ratePerSession })));
+      return textResult(bots.map((b) => ({ id: b.id, name: b.name, allowAnonymous: b.allowAnonymous, webhookUrl: b.webhookUrl, ratePerSession: b.ratePerSession })));
     }
     case "create_bot": {
       const webhookUrl = String(args.webhookUrl);
@@ -64,7 +64,7 @@ async function callTool(orgId: string, name: string, args: Record<string, unknow
         webhookUrl,
         welcome: args.welcome ? String(args.welcome) : undefined,
         color: args.color ? String(args.color) : undefined,
-        isPublic: args.isPublic === undefined ? true : Boolean(args.isPublic),
+        allowAnonymous: args.allowAnonymous === undefined ? true : Boolean(args.allowAnonymous),
         suggestedPrompts: [],
         allowedOrigins: [],
       });
@@ -73,7 +73,7 @@ async function callTool(orgId: string, name: string, args: Record<string, unknow
     case "update_bot": {
       const patch: Record<string, unknown> = {};
       for (const k of ["name", "welcome", "color"] as const) if (args[k] !== undefined) patch[k] = String(args[k]);
-      if (args.isPublic !== undefined) patch.isPublic = Boolean(args.isPublic);
+      if (args.allowAnonymous !== undefined) patch.allowAnonymous = Boolean(args.allowAnonymous);
       if (args.webhookUrl !== undefined) {
         assertHttpUrl(String(args.webhookUrl));
         patch.webhookUrl = String(args.webhookUrl);

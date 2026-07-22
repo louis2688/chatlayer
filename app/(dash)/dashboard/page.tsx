@@ -45,7 +45,7 @@ export default async function DashboardPage() {
                 <span className="grid h-9 w-9 place-items-center rounded-full text-sm font-semibold text-white" style={{ background: b.color }}>{b.name.charAt(0).toUpperCase()}</span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">{b.name}</span>
-                  <span className="block text-xs text-neutral-500">{b.isPublic ? "Public" : "Private"}</span>
+                  <span className="block text-xs text-neutral-500">{b.allowAnonymous ? "Anonymous" : "Lead capture"}</span>
                 </span>
               </Link>
             </li>

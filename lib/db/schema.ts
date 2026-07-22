@@ -109,7 +109,14 @@ export const bot = pgTable("bot", {
   webhookUrl: text("webhookUrl").notNull(),
   webhookAuthHeader: text("webhookAuthHeader"),
   webhookAuthValue: text("webhookAuthValue"),
-  isPublic: boolean("isPublic").notNull().default(true),
+  // Access mode. Anonymous (true): the visitor chats immediately. Lead capture
+  // (false): the visitor must submit the enabled contact fields before a session
+  // token is issued, and those details are forwarded to n8n as chat_started.
+  allowAnonymous: boolean("allowAnonymous").notNull().default(true),
+  leadName: boolean("leadName").notNull().default(true),
+  leadEmail: boolean("leadEmail").notNull().default(true),
+  leadPhone: boolean("leadPhone").notNull().default(false),
+  leadMessage: boolean("leadMessage").notNull().default(true),
   allowedOrigins: jsonb("allowedOrigins").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   ratePerSession: integer("ratePerSession").notNull().default(20),
   ratePerIp: integer("ratePerIp").notNull().default(60),

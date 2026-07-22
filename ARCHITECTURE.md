@@ -89,10 +89,11 @@ Step by step, inside `app/api/chat/[botId]/route.ts`:
 2. **Identify the caller** (the caller-identity ladder, most-trusted first):
    - **API key** (`X-API-Key`, server-to-server), validated in `lib/apikeys.ts`,
      must belong to the bot org.
-   - **Signed-in org member** via the better-auth cookie session; must be a member of
-     the bot organization. This is what gates **private** bots.
-   - **Anonymous token**, the HMAC token from `/api/session/[botId]`, accepted only
-     for **public** bots and only if bound to this bot id.
+   - **Signed-in org member** via the better-auth cookie session, which is what lets
+     you preview a bot from the dashboard.
+   - **Visitor token**, the HMAC token from `/api/session/[botId]`, accepted only if
+     bound to this bot id. Lead capture bots only issue one once the visitor has
+     submitted their details, so the token proves the form was completed.
 3. **Rate limit** with token buckets per session and per IP, tuned per bot
    (`lib/ratelimit.ts`). The client IP is resolved with `TRUST_PROXY_HOPS` so a
    spoofed `X-Forwarded-For` cannot dodge it (`lib/config.ts`).
@@ -147,8 +148,9 @@ Everything is scoped to an **organization**:
 - **Bots, usage events, API keys, credits, and members** are all
   org-scoped. Dashboard reads and every server action (`app/(dash)/actions.ts`) check
   org ownership before touching a row.
-- **Private bots** are reachable only by members of the owning org, enforced in the
-  chat route by looking up membership, and in the widget page by 404-ing non-members.
+- **Access mode** is per bot: anonymous chat, or lead capture where the visitor must
+  submit the enabled contact fields before a session token is minted (`lib/bots.ts`,
+  `app/api/session/[botId]/route.ts`).
 
 ---
 
@@ -214,7 +216,7 @@ Neon pooler) in `lib/db/index.ts`. Push it with `npm run db:push`.
 - **File upload**: per-bot type/size limits; the file is base64-forwarded to n8n.
 - **Widget customization**: per-bot name, color, logo, welcome, suggested prompts,
   RTL, consent screen, custom CSS.
-- **Public vs private bots**: anonymous visitors vs org-member-only.
+- **Access modes**: anonymous chat, or lead capture (name/email/phone/message) forwarded to n8n as a `chat_started` event before the conversation begins.
 - **Billing**: message credits (1 credit = 1 message), a packages page, and a ledger.
   Stripe-ready (`STRIPE_SECRET_KEY`); dev top-up otherwise.
 - **Analytics (metadata only)**: session/message counts, a 14-day chart, per-bot, and top browsers/countries (`lib/analytics.ts`), plus a recent-sessions table -- all from session metadata, never chat text.

@@ -46,7 +46,7 @@ create bots, view analytics, manage team + API keys in the dashboard.
 - Multiple bots per workspace, each with its own webhook, branding, and limits
 - No message storage: only session metadata is kept (ip, geo, browser), never chat text
 - Analytics: sessions, messages, top browsers and countries, per-bot, recent sessions
-- Public bots (anonymous visitors) vs private bots (require a signed-in user)
+- Access modes: anonymous chat, or lead capture (name/email/phone/message) forwarded to n8n as chat_started
 
 **Widget parity (matches n8nchatui.com)**
 - Markdown/HTML rendering in replies (XSS-sanitized), RTL layout, consent screen, custom CSS, file upload (per-bot type/size limits)
@@ -108,7 +108,7 @@ Email + Google sign-ins with the same address link to one account (Google verifi
 ## Security model
 
 - **Per-bot hidden webhook** - the browser talks only to `/api/chat/<botId>`; the n8n URL is a DB field, never sent to the client.
-- **Authentication** - three modes on the chat route: org-scoped API key (`X-API-Key`) > signed-in better-auth user > anonymous HMAC token bound to one bot (public bots only). Private bots require a user.
+- **Authentication** - three modes on the chat route: org-scoped API key (`X-API-Key`) > signed-in better-auth user > visitor HMAC token bound to one bot. Lead capture bots only mint a visitor token after the contact form is submitted.
 - **Multi-tenant isolation** - bots, sessions, IP bans, keys, and members are org-scoped; dashboard reads and every server action check org ownership before touching a row.
 - **Rate limiting** - token bucket per session and per IP, per bot, with spoof-resistant IP resolution.
 - **IP ban** - org-scoped IP blocklist enforced at the chat gateway before any work; managed on the Security page or from the analytics session list.

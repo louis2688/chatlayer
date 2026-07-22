@@ -54,6 +54,9 @@ export default function Chat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const asked = messages.some((m) => m.role === "user");
   const lastSent = useRef("");
+  const [leadDone, setLeadDone] = useState(config.allowAnonymous);
+  const [leadBusy, setLeadBusy] = useState(false);
+  const [leadError, setLeadError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -62,6 +65,7 @@ export default function Chat({
       writeToken(config.id, decodeURIComponent(window.location.hash.slice(3)));
       history.replaceState(null, "", window.location.pathname + window.location.search);
     }
+    if (!config.allowAnonymous && readToken(config.id)) setLeadDone(true);
     if (config.consentRequired) {
       try {
         if (sessionStorage.getItem(`chatlayer.consent.${config.id}`)) setConsented(true);
@@ -77,11 +81,12 @@ export default function Chat({
   }, [messages, busy]);
 
   async function getToken(force = false): Promise<string | null> {
-    if (!config.isPublic) return null;
     if (!force) {
       const cached = readToken(config.id);
       if (cached) return cached;
     }
+    // Lead capture bots never mint here: the token comes from the form below.
+    if (!config.allowAnonymous) return null;
     const res = await fetch(`/api/session/${config.id}`, { method: "POST" });
     if (!res.ok) throw new Error("session_failed");
     const data = await res.json();
@@ -100,6 +105,38 @@ export default function Chat({
     });
   }
 
+  async function submitLead(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (leadBusy) return;
+    setLeadBusy(true);
+    setLeadError(null);
+    const fd = new FormData(e.currentTarget);
+    const payload: Record<string, string> = {};
+    for (const k of ["name", "email", "phone", "message"] as const) {
+      const v = String(fd.get(k) ?? "").trim();
+      if (v) payload[k] = v;
+    }
+    try {
+      const res = await fetch(`/api/session/${config.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        setLeadError("Could not start the chat. Please check your details and try again.");
+        return;
+      }
+      const data = await res.json();
+      writeToken(config.id, data.token);
+      setLeadDone(true);
+      if (payload.message) void send(payload.message);
+    } catch {
+      setLeadError("Could not start the chat. Please try again.");
+    } finally {
+      setLeadBusy(false);
+    }
+  }
+
   async function send(raw: string) {
     const text = raw.trim();
     if ((!text && !pendingFile) || busy) return;
@@ -114,9 +151,10 @@ export default function Chat({
     try {
       let res = await postChat(await getToken());
       if (res.status === 401) {
-        if (config.isPublic) res = await postChat(await getToken(true));
+        if (config.allowAnonymous) res = await postChat(await getToken(true));
         else {
-          setMessages((m) => [...m, { role: "notice", text: "Please sign in to use this assistant." }]);
+          setLeadDone(false);
+          setMessages((m) => [...m, { role: "notice", text: "Your session expired. Please enter your details again." }]);
           return;
         }
       }
@@ -216,6 +254,29 @@ export default function Chat({
             I agree, start chatting
           </button>
         </div>
+      ) : !leadDone ? (
+        <form onSubmit={submitLead} className="chat-scroll flex flex-1 flex-col gap-3 overflow-y-auto p-5">
+          <div>
+            <p className="text-sm font-semibold">Let&apos;s get started</p>
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">A few details so we can help you properly.</p>
+          </div>
+          {config.leadName && (
+            <input name="name" required autoComplete="name" placeholder="Name" className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-[var(--brand)] dark:border-neutral-700 dark:bg-neutral-900 dark:placeholder:text-neutral-500" />
+          )}
+          {config.leadEmail && (
+            <input name="email" type="email" required autoComplete="email" placeholder="Email" className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-[var(--brand)] dark:border-neutral-700 dark:bg-neutral-900 dark:placeholder:text-neutral-500" />
+          )}
+          {config.leadPhone && (
+            <input name="phone" type="tel" required autoComplete="tel" placeholder="Phone" className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-[var(--brand)] dark:border-neutral-700 dark:bg-neutral-900 dark:placeholder:text-neutral-500" />
+          )}
+          {config.leadMessage && (
+            <textarea name="message" required rows={3} placeholder="How can we help?" className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-[var(--brand)] dark:border-neutral-700 dark:bg-neutral-900 dark:placeholder:text-neutral-500 resize-none" />
+          )}
+          {leadError && <p className="text-xs text-red-500">{leadError}</p>}
+          <button type="submit" disabled={leadBusy} className="mt-auto rounded-lg bg-[var(--brand)] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+            {leadBusy ? "Starting..." : "Start chat"}
+          </button>
+        </form>
       ) : (
         <>
           <div ref={scrollRef} className="chat-scroll flex-1 space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">

@@ -21,9 +21,9 @@ visitor / customer app
 ## Quickstart
 
 ```bash
-cp .env.example .env.local     # fill SESSION_SECRET/BETTER_AUTH_SECRET; DATABASE_URL defaults to file:local.db
+cp .env.example .env.local     # fill DATABASE_URL (Postgres), BETTER_AUTH_SECRET
 npm install
-npm run db:push                # create the SQLite schema
+npm run db:push                # create the Postgres schema
 npm run seed                   # optional: demo org + "demo" bot for the landing page
 npm run dev                    # http://localhost:3000
 ```
@@ -82,7 +82,7 @@ Keys are org-scoped and can only reach bots in the same organization.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | libSQL URL. `file:local.db` locally; Turso/libSQL URL (+ `DATABASE_AUTH_TOKEN`) in cloud. |
+| `DATABASE_URL` | yes | Postgres connection string. Neon pooled URL in cloud; any Postgres locally. |
 | `BETTER_AUTH_SECRET` | yes | >= 32 chars; signs auth sessions (also fallback for chat tokens). |
 | `BETTER_AUTH_URL` | prod | App base URL. |
 | `SESSION_SECRET` | no | Separate HMAC key for chat session tokens (defaults to `BETTER_AUTH_SECRET`). |
@@ -109,7 +109,7 @@ Email + Google sign-ins with the same address link to one account (Google verifi
 
 - **Per-bot hidden webhook** - the browser talks only to `/api/chat/<botId>`; the n8n URL is a DB field, never sent to the client.
 - **Authentication** - three modes on the chat route: org-scoped API key (`X-API-Key`) > signed-in better-auth user > anonymous HMAC token bound to one bot (public bots only). Private bots require a user.
-- **Multi-tenant isolation** - bots, usage events, keys, and members are org-scoped; dashboard reads and every server action check org ownership before touching a row.
+- **Multi-tenant isolation** - bots, sessions, IP bans, keys, and members are org-scoped; dashboard reads and every server action check org ownership before touching a row.
 - **Rate limiting** - token bucket per session and per IP, per bot, with spoof-resistant IP resolution.
 - **IP ban** - org-scoped IP blocklist enforced at the chat gateway before any work; managed on the Security page or from the analytics session list.
 - **Origin + CORS** - per-bot domain allowlist; `/widget/*` is frameable, everything else is `X-Frame-Options: DENY`.
@@ -125,5 +125,5 @@ npm run build
 
 ## Stack
 
-Next.js 16 (App Router) - better-auth 1.6 - Drizzle ORM + libSQL - Zod - Tailwind v4.
+Next.js 16 (App Router) - better-auth 1.6 - Drizzle ORM + Postgres (Neon) - Zod - Tailwind v4 - ua-parser-js.
 In-memory rate limiter (single instance; swap to Upstash Redis for horizontal scale).

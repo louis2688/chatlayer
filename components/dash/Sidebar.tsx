@@ -50,9 +50,15 @@ export default function Sidebar({ orgName, userEmail }: { orgName: string; userE
     >
       <div className="m-stripe -mx-3 -mt-3 mb-3" />
       <div className={collapsed ? "flex flex-col items-center gap-2" : "flex items-center justify-between"}>
-        <Link href="/dashboard" title="ChatLayer" className="flex items-center gap-2 px-1">
-          <Image src="/icon.png" alt="ChatLayer" width={28} height={28} priority className="h-7 w-7 shrink-0" />
-          {!collapsed && <span className="font-display text-lg font-semibold">ChatLayer</span>}
+        <Link href="/dashboard" title="ChatLayer" className="px-1">
+          {collapsed ? (
+            <Image src="/icon.png" alt="ChatLayer" width={30} height={30} priority className="h-[30px] w-[30px]" />
+          ) : (
+            <>
+              <Image src="/logo.png" alt="ChatLayer" width={371} height={311} priority className="block h-auto w-[112px] dark:hidden" />
+              <Image src="/logo-dark.png" alt="ChatLayer" width={371} height={311} priority className="hidden h-auto w-[112px] dark:block" />
+            </>
+          )}
         </Link>
         <button
           type="button"

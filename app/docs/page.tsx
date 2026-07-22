@@ -11,9 +11,8 @@ export default function DocsPage() {
   return (
     <main className="min-h-dvh bg-[#0a0f0d] text-neutral-200">
       <nav className="mx-auto flex max-w-3xl items-center justify-between px-6 py-5">
-        <Link href="/" className="font-display flex items-center gap-2 text-lg font-semibold text-white">
-          <Image src="/icon.png" alt="" width={30} height={30} className="h-[30px] w-[30px]" />
-          ChatLayer
+        <Link href="/">
+          <Image src="/logo-dark.png" alt="ChatLayer" width={371} height={311} className="h-16 w-auto" />
         </Link>
         <Link href="/dashboard" className="text-sm text-emerald-400 hover:underline">Dashboard</Link>
       </nav>

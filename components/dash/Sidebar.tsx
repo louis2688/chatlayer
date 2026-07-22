@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -48,12 +49,11 @@ export default function Sidebar({ orgName, userEmail }: { orgName: string; userE
       className={`hidden shrink-0 flex-col border-r border-neutral-200 p-3 dark:border-neutral-800 sm:flex ${collapsed ? "w-16" : "w-60"}`}
     >
       <div className="m-stripe -mx-3 -mt-3 mb-3" />
-      <div className="flex items-center justify-between">
-        {!collapsed && (
-          <Link href="/dashboard" className="font-display px-2 text-lg font-semibold">
-            ChatLayer
-          </Link>
-        )}
+      <div className={collapsed ? "flex flex-col items-center gap-2" : "flex items-center justify-between"}>
+        <Link href="/dashboard" title="ChatLayer" className="flex items-center gap-2 px-1">
+          <Image src="/icon.png" alt="ChatLayer" width={28} height={28} priority className="h-7 w-7 shrink-0" />
+          {!collapsed && <span className="font-display text-lg font-semibold">ChatLayer</span>}
+        </Link>
         <button
           type="button"
           onClick={toggle}

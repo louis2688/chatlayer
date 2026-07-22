@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export const metadata = { title: "Docs - ChatLayer" };
@@ -10,7 +11,10 @@ export default function DocsPage() {
   return (
     <main className="min-h-dvh bg-[#0a0f0d] text-neutral-200">
       <nav className="mx-auto flex max-w-3xl items-center justify-between px-6 py-5">
-        <Link href="/" className="font-display text-lg font-semibold text-white">ChatLayer</Link>
+        <Link href="/" className="font-display flex items-center gap-2 text-lg font-semibold text-white">
+          <Image src="/icon.png" alt="" width={30} height={30} className="h-[30px] w-[30px]" />
+          ChatLayer
+        </Link>
         <Link href="/dashboard" className="text-sm text-emerald-400 hover:underline">Dashboard</Link>
       </nav>
       <div className="mx-auto max-w-3xl space-y-6 px-6 pb-16">

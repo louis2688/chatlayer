@@ -1,7 +1,7 @@
-import Logo from "@/components/Logo";
 import Link from "next/link";
 
 export const metadata = { title: "Docs - ChatLayer" };
+export const dynamic = "force-dynamic";
 
 const NAV: Array<[string, string]> = [
   ["quickstart", "Quickstart"],
@@ -22,15 +22,17 @@ const NAV: Array<[string, string]> = [
   ["security", "Security and limits"],
 ];
 
-const card = "rounded-xl border border-white/10 bg-white/[0.03] p-6";
-const h2 = "font-display text-xl font-semibold text-white";
-const code = "rounded bg-black/50 px-1.5 py-0.5 font-mono text-xs text-emerald-300";
-const pre = "mt-3 overflow-x-auto rounded-lg border border-white/10 bg-black/50 p-4 font-mono text-xs leading-relaxed text-emerald-300";
-const p = "mt-2 text-sm leading-relaxed text-neutral-400";
+const card = "scroll-mt-6 rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900/40";
+const h2 = "font-display text-lg font-semibold text-neutral-900 dark:text-white";
+const p = "mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400";
+const strong = "font-medium text-neutral-900 dark:text-neutral-200";
+const link = "text-emerald-400 hover:underline";
+const code = "rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs text-emerald-600 dark:bg-black/40 dark:text-emerald-300";
+const pre = "mt-3 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs leading-relaxed text-neutral-800 dark:border-white/10 dark:bg-black/40 dark:text-emerald-300";
 
 function Soon() {
   return (
-    <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-amber-400">
+    <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
       Not supported yet
     </span>
   );
@@ -38,7 +40,7 @@ function Soon() {
 
 function Section({ id, title, soon, children }: { id: string; title: string; soon?: boolean; children: React.ReactNode }) {
   return (
-    <section id={id} className={`${card} scroll-mt-6`}>
+    <section id={id} className={card}>
       <h2 className={h2}>
         {title}
         {soon && <Soon />}
@@ -50,23 +52,26 @@ function Section({ id, title, soon, children }: { id: string; title: string; soo
 
 export default function DocsPage() {
   return (
-    <main className="min-h-dvh bg-black text-neutral-200">
-      <div className="m-stripe" />
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="/">
-          <Logo onDark className="h-16 w-auto" />
-        </Link>
-        <Link href="/dashboard" className="text-sm font-medium text-emerald-400 hover:underline">Dashboard</Link>
-      </nav>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-display text-2xl font-semibold">Documentation</h1>
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+          ChatLayer is a secure interface and router in front of your n8n Chat workflows. n8n stays the brain; ChatLayer handles the
+          widget, authentication, rate limiting, and analytics. Chat message content is never stored.
+        </p>
+      </div>
 
-      <div className="mx-auto grid max-w-6xl gap-8 px-6 pb-20 lg:grid-cols-[220px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[180px_1fr]">
         <aside className="hidden lg:block">
           <div className="sticky top-6">
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[1.5px] text-neutral-500">On this page</p>
-            <ul className="space-y-1.5 border-l border-white/10">
+            <ul className="space-y-1.5 border-l border-neutral-200 dark:border-neutral-800">
               {NAV.map(([id, label]) => (
                 <li key={id}>
-                  <a href={`#${id}`} className="-ml-px block border-l border-transparent pl-3 text-sm text-neutral-400 transition-colors hover:border-emerald-500 hover:text-white">
+                  <a
+                    href={`#${id}`}
+                    className="-ml-px block border-l border-transparent pl-3 text-sm text-neutral-600 transition-colors hover:border-emerald-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                  >
                     {label}
                   </a>
                 </li>
@@ -76,28 +81,17 @@ export default function DocsPage() {
         </aside>
 
         <div className="min-w-0 space-y-5">
-          <div>
-            <h1 className="font-display text-3xl font-semibold text-white">Documentation</h1>
-            <p className="mt-2 text-neutral-400">
-              ChatLayer is a secure interface and router in front of your n8n Chat workflows. n8n stays the brain; ChatLayer
-              handles the widget, authentication, rate limiting, and analytics. Chat message content is never stored.
-            </p>
-          </div>
-
           <Section id="quickstart" title="Quickstart">
             <p className={p}>
-              Create a bot in <Link href="/bots" className="text-emerald-400 hover:underline">Bots</Link> and point it at your n8n
-              <strong className="text-neutral-200"> Chat Trigger</strong> webhook URL. That URL is stored server-side and is never
-              sent to the browser. Choose <strong className="text-neutral-200">Public</strong> (anonymous visitors) or{" "}
-              <strong className="text-neutral-200">Private</strong> (signed-in members of your workspace only). Then drop one tag on
-              your site:
+              Create a bot in <Link href="/bots" className={link}>Bots</Link> and point it at your n8n{" "}
+              <span className={strong}>Chat Trigger</span> webhook URL. That URL is stored server-side and is never sent to the browser.
+              Choose <span className={strong}>Public</span> (anonymous visitors) or <span className={strong}>Private</span> (signed-in
+              members of your workspace only). Then drop one tag on your site:
             </p>
             <pre className={pre}>
               <code>{`<script src="https://your-host/embed.js" data-bot="BOT_ID" defer></script>`}</code>
             </pre>
-            <p className={p}>
-              Add the domains that may use the bot to its origin allowlist. Anything not listed is refused a session.
-            </p>
+            <p className={p}>Add the domains that may use the bot to its origin allowlist. Anything not listed is refused a session.</p>
           </Section>
 
           <Section id="backend-integration" title="Backend integration">
@@ -151,17 +145,16 @@ Content-Type: application/json
 
           <Section id="session-management" title="Session management">
             <p className={p}>
-              Anonymous visitors get a short-lived session token bound to a single bot. The loader mints it from the{" "}
-              <em>parent</em> page, so the browser sends your real origin and ChatLayer can check it against the bot allowlist before
-              issuing anything:
+              Anonymous visitors get a short-lived session token bound to a single bot. The loader mints it from the <em>parent</em> page,
+              so the browser sends your real origin and ChatLayer can check it against the bot allowlist before issuing anything:
             </p>
             <pre className={pre}>
               <code>{`POST /api/session/<botId>   ->   { "token": "..." }`}</code>
             </pre>
             <p className={p}>
-              Tokens are HMAC-signed, valid for 24 hours, and only accepted by the bot they were minted for. The widget keeps the token
-              in <span className={code}>sessionStorage</span> under <span className={code}>chatlayer.token.&lt;botId&gt;</span>, falling
-              back to memory when storage is blocked. Minting is rate limited to 10 per minute per IP per bot.
+              Tokens are HMAC-signed, valid for 24 hours, and only accepted by the bot they were minted for. The widget keeps the token in{" "}
+              <span className={code}>sessionStorage</span> under <span className={code}>chatlayer.token.&lt;botId&gt;</span>, falling back
+              to memory when storage is blocked. Minting is rate limited to 10 per minute per IP per bot.
             </p>
             <p className={p}>
               The <span className={code}>sessionId</span> sent to n8n is what ties a conversation together, so use it as the memory key in
@@ -200,9 +193,9 @@ plain text                     // raw token`}</code>
 
           <Section id="file-uploads" title="File uploads">
             <p className={p}>
-              Enable uploads per bot and set a maximum size and a list of accepted MIME types. The visitor can attach one file per
-              message; it is base64 encoded and forwarded to your workflow in the <span className={code}>files</span> array shown in{" "}
-              <a href="#backend-integration" className="text-emerald-400 hover:underline">Backend integration</a>.
+              Enable uploads per bot and set a maximum size and a list of accepted MIME types. The visitor can attach one file per message;
+              it is base64 encoded and forwarded to your workflow in the <span className={code}>files</span> array shown in{" "}
+              <a href="#backend-integration" className={link}>Backend integration</a>.
             </p>
             <p className={p}>
               The limits are enforced on the server as well as in the browser: oversized files are rejected with{" "}
@@ -219,9 +212,7 @@ plain text                     // raw token`}</code>
             <pre className={pre}>
               <code>{`![Delivery route](https://cdn.example.com/route.png)`}</code>
             </pre>
-            <p className={p}>
-              Links to other file types render as ordinary links. There is no dedicated carousel, gallery, or card component yet.
-            </p>
+            <p className={p}>Links to other file types render as ordinary links. There is no dedicated carousel, gallery, or card component yet.</p>
           </Section>
 
           <Section id="custom-css" title="Custom CSS">
@@ -274,7 +265,7 @@ plain text                     // raw token`}</code>
           <Section id="mcp" title="MCP server">
             <p className={p}>
               ChatLayer speaks the Model Context Protocol over HTTP, so Claude or Cursor can manage a workspace directly. Authenticate with
-              a workspace API key from Settings:
+              a workspace API key from <Link href="/settings" className={link}>Settings</Link>:
             </p>
             <pre className={pre}>
               <code>{`{
@@ -294,7 +285,10 @@ plain text                     // raw token`}</code>
           </Section>
 
           <Section id="api" title="Programmatic API">
-            <p className={p}>For server-to-server use, create an API key in Settings and call the bot directly:</p>
+            <p className={p}>
+              For server-to-server use, create an API key in <Link href="/settings" className={link}>Settings</Link> and call the bot
+              directly:
+            </p>
             <pre className={pre}>
               <code>{`curl -X POST https://your-host/api/chat/BOT_ID \\
   -H "X-API-Key: sk_..." -H "Content-Type: application/json" \\
@@ -307,19 +301,19 @@ plain text                     // raw token`}</code>
           </Section>
 
           <Section id="security" title="Security and limits">
-            <ul className="mt-2 space-y-2 text-sm leading-relaxed text-neutral-400">
-              <li>&bull; <strong className="text-neutral-200">Hidden webhook</strong> - the n8n URL is a server-side field, never sent to the browser.</li>
-              <li>&bull; <strong className="text-neutral-200">Three auth modes</strong> - workspace API key, signed-in member, or an anonymous token bound to one public bot.</li>
-              <li>&bull; <strong className="text-neutral-200">Rate limiting</strong> - token buckets per session and per IP, tuned per bot, with spoof-resistant client IP resolution.</li>
-              <li>&bull; <strong className="text-neutral-200">IP bans</strong> - blocked addresses are refused at the gateway before any work happens.</li>
-              <li>&bull; <strong className="text-neutral-200">Origin allowlist</strong> - only the domains you list can obtain a session.</li>
-              <li>&bull; <strong className="text-neutral-200">Input caps</strong> - messages are limited to 4000 characters.</li>
-              <li>&bull; <strong className="text-neutral-200">Credits</strong> - one credit per user message; the API returns <span className={code}>402</span> when a workspace runs out.</li>
-              <li>&bull; <strong className="text-neutral-200">No message storage</strong> - only per-session metadata is kept for analytics. Chat content is never written to the database.</li>
+            <ul className="mt-2 space-y-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+              <li>&bull; <span className={strong}>Hidden webhook</span> - the n8n URL is a server-side field, never sent to the browser.</li>
+              <li>&bull; <span className={strong}>Three auth modes</span> - workspace API key, signed-in member, or an anonymous token bound to one public bot.</li>
+              <li>&bull; <span className={strong}>Rate limiting</span> - token buckets per session and per IP, tuned per bot, with spoof-resistant client IP resolution.</li>
+              <li>&bull; <span className={strong}>IP bans</span> - blocked addresses are refused at the gateway before any work happens.</li>
+              <li>&bull; <span className={strong}>Origin allowlist</span> - only the domains you list can obtain a session.</li>
+              <li>&bull; <span className={strong}>Input caps</span> - messages are limited to 4000 characters.</li>
+              <li>&bull; <span className={strong}>Credits</span> - one credit per user message; the API returns <span className={code}>402</span> when a workspace runs out.</li>
+              <li>&bull; <span className={strong}>No message storage</span> - only per-session metadata is kept for analytics. Chat content is never written to the database.</li>
             </ul>
           </Section>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

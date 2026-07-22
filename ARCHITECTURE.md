@@ -234,10 +234,9 @@ app/
   page.tsx                     landing page (marketing + live demo)
   (auth)/login, signup         auth pages
   (dash)/                      dashboard (layout guards via requireContext)
-    dashboard, analytics, bots, billing, security, settings
+    dashboard, analytics, bots, billing, security, docs, settings
     actions.ts                 server actions (all org-scoped, Zod-validated)
   widget/[botId]/              the embeddable chat page (iframe target)
-  docs/                        in-app quickstart docs
   api/
     chat/[botId]/route.ts      the secure chat gateway (the core)
     session/[botId]/route.ts   issues anonymous chat tokens

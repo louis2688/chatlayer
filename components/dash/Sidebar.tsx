@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Logo from "@/components/Logo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -54,10 +55,7 @@ export default function Sidebar({ orgName, userEmail }: { orgName: string; userE
           {collapsed ? (
             <Image src="/icon.png" alt="ChatLayer" width={30} height={30} priority className="h-[30px] w-[30px]" />
           ) : (
-            <>
-              <Image src="/logo.png" alt="ChatLayer" width={371} height={311} priority className="block h-auto w-[112px] dark:hidden" />
-              <Image src="/logo-dark.png" alt="ChatLayer" width={371} height={311} priority className="hidden h-auto w-[112px] dark:block" />
-            </>
+            <Logo className="h-auto w-[112px]" priority />
           )}
         </Link>
         <button

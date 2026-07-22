@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import Logo from "@/components/Logo";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
@@ -36,7 +36,7 @@ export default function AuthForm({ mode, showGoogle }: { mode: "login" | "signup
   return (
     <div className="w-full max-w-sm">
       <Link href="/" className="mb-6 inline-block">
-        <Image src="/logo-dark.png" alt="ChatLayer" width={371} height={311} priority className="h-20 w-auto" />
+        <Logo onDark priority className="h-20 w-auto" />
       </Link>
       <h1 className="font-display text-2xl font-semibold">{isSignup ? "Create your workspace" : "Welcome back"}</h1>
       <p className="mt-1 text-sm text-neutral-400">

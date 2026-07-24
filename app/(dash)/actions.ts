@@ -35,6 +35,10 @@ const botSchema = z.object({
   consentText: z.string().max(1000).optional(),
   customCss: z.string().max(10000).optional(),
   maxFileSizeMb: z.coerce.number().int().min(1).max(25),
+  widgetType: z.enum(["popup", "inline"]).catch("popup"),
+  position: z.enum(["bottom-right", "bottom-left", "top-right", "top-left"]).catch("bottom-right"),
+  buttonText: z.string().max(40).optional(),
+  greeting: z.string().max(500).optional(),
 });
 
 function botValues(formData: FormData, p: z.infer<typeof botSchema>) {
@@ -49,8 +53,8 @@ function botValues(formData: FormData, p: z.infer<typeof botSchema>) {
     webhookAuthHeader: p.webhookAuthType === "none" ? null : p.webhookAuthHeader || null,
     webhookAuthValue: p.webhookAuthType === "none" ? null : p.webhookAuthValue || null,
     allowAnonymous: formData.get("allowAnonymous") === "on",
-    leadName: formData.get("leadName") === "on",
-    leadEmail: formData.get("leadEmail") === "on",
+    leadName: true, // Dave: name + email always collected in lead mode
+    leadEmail: true,
     leadPhone: formData.get("leadPhone") === "on",
     leadMessage: formData.get("leadMessage") === "on",
     suggestedPrompts: lines(formData.get("suggestedPrompts")),
@@ -61,6 +65,10 @@ function botValues(formData: FormData, p: z.infer<typeof botSchema>) {
     consentRequired: formData.get("consentRequired") === "on",
     consentText: p.consentText || null,
     customCss: p.customCss || null,
+    widgetType: p.widgetType,
+    position: p.position,
+    buttonText: p.buttonText || "Chat with us",
+    greeting: p.greeting || null,
     allowFileUpload: formData.get("allowFileUpload") === "on",
     maxFileSizeMb: p.maxFileSizeMb,
     allowedFileTypes: lines(formData.get("allowedFileTypes")),

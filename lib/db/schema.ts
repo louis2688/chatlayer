@@ -131,6 +131,11 @@ export const bot = pgTable("bot", {
   allowFileUpload: boolean("allowFileUpload").notNull().default(false),
   maxFileSizeMb: integer("maxFileSizeMb").notNull().default(5),
   allowedFileTypes: jsonb("allowedFileTypes").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  // Widget presentation (drives the embed snippet + live preview).
+  widgetType: text("widgetType").notNull().default("popup"),
+  position: text("position").notNull().default("bottom-right"),
+  buttonText: text("buttonText").notNull().default("Chat with us"),
+  greeting: text("greeting"),
   createdAt: ts("createdAt").notNull().$defaultFn(now),
 });
 

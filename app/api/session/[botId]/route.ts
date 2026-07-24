@@ -4,7 +4,7 @@ import { corsHeaders, originAllowed, clientIp, clientGeo } from "@/lib/config";
 import { rateLimit } from "@/lib/ratelimit";
 import { issueSession, verifySession } from "@/lib/token";
 import { getBot, type Bot } from "@/lib/bots";
-import { assertPublicHost } from "@/lib/ssrf";
+import { assertPublicHost, safeFetch } from "@/lib/ssrf";
 import { webhookAuthHeaders } from "@/lib/webhook-auth";
 import { recordLeadSession } from "@/lib/store";
 
@@ -36,7 +36,7 @@ async function forwardLead(bot: Bot, sessionId: string, lead: Lead) {
     return;
   }
   const headers: Record<string, string> = { "Content-Type": "application/json", ...webhookAuthHeaders(bot) };
-  await fetch(target, {
+  await safeFetch(target, {
     method: "POST",
     headers,
     body: JSON.stringify({

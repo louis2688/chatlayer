@@ -6,7 +6,7 @@ import { getBot, isOrgMember } from "@/lib/bots";
 import { validateApiKey } from "@/lib/apikeys";
 import { recordSession } from "@/lib/store";
 import { isIpBanned } from "@/lib/ipbans";
-import { assertPublicHost } from "@/lib/ssrf";
+import { assertPublicHost, safeFetch } from "@/lib/ssrf";
 import { consumeCredit } from "@/lib/credits";
 import { webhookAuthHeaders } from "@/lib/webhook-auth";
 import { parseDelta } from "@/lib/stream";
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         controller.enqueue(encoder.encode(s));
       };
       try {
-        const upstream = await fetch(target, {
+        const upstream = await safeFetch(target, {
           method: "POST",
           headers,
           body: JSON.stringify({ action: "sendMessage", sessionId: sid, chatInput: clean, ...(filePayload ? { files: [filePayload] } : {}) }),

@@ -1,5 +1,8 @@
 import { lookup } from "node:dns/promises";
+import { lookup as dnsLookupCb } from "node:dns";
 import net from "node:net";
+import { Agent, fetch as undiciFetch } from "undici";
+import type { RequestInit as UndiciRequestInit } from "undici";
 
 // Blocks webhook URLs that target the host's own network (cloud metadata,
 // loopback, RFC1918, link-local) — otherwise a tenant could point a bot at an
@@ -49,4 +52,28 @@ export async function assertPublicHost(u: URL): Promise<void> {
   if (allowPrivate()) return;
   const { address } = await lookup(u.hostname);
   if (ipPrivate(address)) throw new Error("Webhook resolves to a private IP");
+}
+
+// Defeats DNS rebinding: undici resolves the host through THIS lookup, we
+// validate the exact IP it will connect to, and undici connects to that same
+// IP -- so there is no window to swap in a private address between check and
+// connect. Use safeFetch() (not global fetch) for every outbound webhook call.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function guardedLookup(hostname: string, options: any, cb: (err: Error | null, address?: any, family?: number) => void) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dnsLookupCb(hostname, options, (err: Error | null, address: any, family: number) => {
+    if (err) return cb(err);
+    if (allowPrivate()) return cb(null, address, family);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const addrs: string[] = Array.isArray(address) ? address.map((a: any) => a.address) : [address];
+    if (addrs.some((a) => ipPrivate(a))) return cb(new Error("Webhook resolves to a private IP"));
+    cb(null, address, family);
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const safeAgent = new Agent({ connect: { lookup: guardedLookup as any } });
+
+export function safeFetch(url: string | URL, init?: UndiciRequestInit) {
+  return undiciFetch(url, { ...init, dispatcher: safeAgent });
 }

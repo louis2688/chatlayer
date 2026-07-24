@@ -136,8 +136,11 @@ Content-Type: application/json
 }`}</code>
             </pre>
             <p className={p}>
-              A bot can carry one static credential header (set it on the bot) which is sent alongside, so your workflow can verify the
-              call came from ChatLayer. Upstream calls time out after 120 seconds and redirects are never followed. Webhook hosts that
+              Under <span className={strong}>Webhook authentication</span> you can match whatever your n8n Chat Trigger expects:
+              <span className={strong}> None</span>, <span className={strong}>Basic Auth</span> (username and password, base64-encoded into
+              an <span className={code}>Authorization: Basic</span> header for you), or a <span className={strong}>custom header</span> (an
+              API key or bearer token). The credential is stored server-side and sent only to the webhook, never to the browser. Upstream
+              calls time out after 120 seconds and redirects are never followed. Webhook hosts that
               resolve to loopback, private, link-local, or cloud metadata addresses are rejected both when you save the bot and again at
               request time.
             </p>

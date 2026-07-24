@@ -8,6 +8,7 @@ import { recordSession } from "@/lib/store";
 import { isIpBanned } from "@/lib/ipbans";
 import { assertPublicHost } from "@/lib/ssrf";
 import { consumeCredit } from "@/lib/credits";
+import { webhookAuthHeaders } from "@/lib/webhook-auth";
 import { parseDelta } from "@/lib/stream";
 import { auth } from "@/lib/auth";
 
@@ -102,8 +103,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   // Billing: 1 credit per user message (charged to the bot's org).
   if (!(await consumeCredit(bot.organizationId))) return bad("out_of_credits", 402);
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (bot.webhookAuthHeader && bot.webhookAuthValue) headers[bot.webhookAuthHeader] = bot.webhookAuthValue;
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...webhookAuthHeaders(bot) };
 
   // Stream the reply to the client as text deltas. Works whether n8n streams
   // (NDJSON / SSE token chunks) or returns a single JSON body (sent as one delta).

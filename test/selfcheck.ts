@@ -6,6 +6,7 @@ import { rateLimit } from "../lib/ratelimit.ts";
 import { clientIp, devTopUpAllowed, intEnv } from "../lib/config.ts";
 import { assertHttpUrl } from "../lib/ssrf.ts";
 import { parseDelta } from "../lib/stream.ts";
+import { webhookAuthHeaders } from "../lib/webhook-auth.ts";
 
 process.env.SESSION_SECRET = "test-secret-0123456789012345678901234567";
 
@@ -120,5 +121,21 @@ assert.equal(parseDelta("plain token"), "plain token");
   if (restore.a === undefined) delete env.ALLOW_DEV_TOPUP; else env.ALLOW_DEV_TOPUP = restore.a;
   if (restore.s === undefined) delete env.STRIPE_SECRET_KEY; else env.STRIPE_SECRET_KEY = restore.s;
 }
+
+// --- webhook auth headers ---
+assert.deepEqual(webhookAuthHeaders({ webhookAuthType: "none", webhookAuthHeader: "X", webhookAuthValue: "Y" }), {}, "none -> nothing");
+assert.deepEqual(
+  webhookAuthHeaders({ webhookAuthType: "header", webhookAuthHeader: "X-Api-Key", webhookAuthValue: "secret" }),
+  { "X-Api-Key": "secret" },
+  "header -> name:value",
+);
+assert.equal(
+  webhookAuthHeaders({ webhookAuthType: "basic", webhookAuthHeader: "user", webhookAuthValue: "pass" }).Authorization,
+  "Basic " + Buffer.from("user:pass").toString("base64"),
+  "basic -> base64(user:pass)",
+);
+assert.deepEqual(webhookAuthHeaders({ webhookAuthType: "header", webhookAuthHeader: "", webhookAuthValue: "y" }), {}, "header needs a name");
+assert.deepEqual(webhookAuthHeaders({ webhookAuthType: "basic", webhookAuthHeader: "", webhookAuthValue: "p" }), {}, "basic needs a username");
+assert.ok(webhookAuthHeaders({ webhookAuthType: "basic", webhookAuthHeader: "u", webhookAuthValue: "" }).Authorization, "basic allows an empty password");
 
 console.log("selfcheck: all assertions passed");

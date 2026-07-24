@@ -5,6 +5,7 @@ import { rateLimit } from "@/lib/ratelimit";
 import { issueSession, verifySession } from "@/lib/token";
 import { getBot, type Bot } from "@/lib/bots";
 import { assertPublicHost } from "@/lib/ssrf";
+import { webhookAuthHeaders } from "@/lib/webhook-auth";
 
 export const runtime = "nodejs";
 
@@ -33,8 +34,7 @@ async function forwardLead(bot: Bot, sessionId: string, lead: Lead) {
   } catch {
     return;
   }
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (bot.webhookAuthHeader && bot.webhookAuthValue) headers[bot.webhookAuthHeader] = bot.webhookAuthValue;
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...webhookAuthHeaders(bot) };
   await fetch(target, {
     method: "POST",
     headers,

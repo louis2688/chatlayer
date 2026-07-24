@@ -107,6 +107,10 @@ export const bot = pgTable("bot", {
   logoUrl: text("logoUrl"),
   suggestedPrompts: jsonb("suggestedPrompts").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   webhookUrl: text("webhookUrl").notNull(),
+  // Webhook auth matches n8n's own choices. "none" | "basic" | "header".
+  // The two columns below hold header-name/value for "header", or
+  // username/password for "basic".
+  webhookAuthType: text("webhookAuthType").notNull().default("none"),
   webhookAuthHeader: text("webhookAuthHeader"),
   webhookAuthValue: text("webhookAuthValue"),
   // Access mode. Anonymous (true): the visitor chats immediately. Lead capture

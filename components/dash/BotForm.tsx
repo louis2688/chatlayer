@@ -1,4 +1,5 @@
 import { createBotAction, updateBotAction } from "@/app/(dash)/actions";
+import WebhookAuth from "./WebhookAuth";
 import type { Bot } from "@/lib/bots";
 
 const field =
@@ -82,13 +83,11 @@ export default function BotForm({ bot }: { bot?: Bot }) {
         </div>
       </details>
 
-      <details className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
-        <summary className="cursor-pointer text-sm text-neutral-700 dark:text-neutral-300 dark:text-neutral-300">Webhook header auth (optional)</summary>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <input name="webhookAuthHeader" defaultValue={bot?.webhookAuthHeader ?? ""} placeholder="Header name" className={field} />
-          <input name="webhookAuthValue" defaultValue={bot?.webhookAuthValue ?? ""} placeholder="Header value" className={field} />
-        </div>
-      </details>
+      <WebhookAuth
+        defaultType={(bot?.webhookAuthType as "none" | "basic" | "header") ?? "none"}
+        defaultName={bot?.webhookAuthHeader ?? ""}
+        defaultValue={bot?.webhookAuthValue ?? ""}
+      />
 
       <details className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-3">
         <summary className="cursor-pointer text-sm text-neutral-700 dark:text-neutral-300 dark:text-neutral-300">Appearance &amp; advanced</summary>

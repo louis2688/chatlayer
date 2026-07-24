@@ -10,8 +10,9 @@ export default async function WidgetPage({ params }: { params: Promise<{ botId: 
   const bot = await getBot(botId);
   if (!bot) notFound();
   const hideBranding = await orgHideBranding(bot.organizationId);
-  // Strip any style-tag breakout so custom CSS can't inject markup.
-  const css = bot.customCss ? bot.customCss.replace(/<\/style/gi, "") : null;
+  // CSS never legitimately contains "<", so strip every one. A single-pass </style
+  // replace was bypassable via a sandwich ("</st</styleyle>") that re-forms </style.
+  const css = bot.customCss ? bot.customCss.replace(/</g, "") : null;
   return (
     <>
       {css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null}

@@ -32,17 +32,17 @@ assert.equal(verifySession(token), null, "old-secret token rejected");
 process.env.SESSION_SECRET = "test-secret-0123456789012345678901234567";
 
 // --- rate limit ---
-for (let i = 0; i < 3; i++) assert.ok(rateLimit("t1", 3, 10_000).ok);
-const denied = rateLimit("t1", 3, 10_000);
+for (let i = 0; i < 3; i++) assert.ok((await rateLimit("t1", 3, 10_000)).ok);
+const denied = await rateLimit("t1", 3, 10_000);
 assert.equal(denied.ok, false, "over-budget denied");
 assert.ok(denied.retryAfterSec >= 1);
-assert.ok(rateLimit("t2", 2, 200).ok);
-assert.ok(rateLimit("t2", 2, 200).ok);
-assert.equal(rateLimit("t2", 2, 200).ok, false);
+assert.ok((await rateLimit("t2", 2, 200)).ok);
+assert.ok((await rateLimit("t2", 2, 200)).ok);
+assert.equal((await rateLimit("t2", 2, 200)).ok, false);
 await sleep(250);
-assert.ok(rateLimit("t2", 2, 200).ok, "refilled after window");
-assert.ok(rateLimit("t3", 1, 10_000).ok);
-assert.ok(rateLimit("t4", 1, 10_000).ok, "keys independent");
+assert.ok((await rateLimit("t2", 2, 200)).ok, "refilled after window");
+assert.ok((await rateLimit("t3", 1, 10_000)).ok);
+assert.ok((await rateLimit("t4", 1, 10_000)).ok, "keys independent");
 
 // --- intEnv ---
 delete process.env.RL;

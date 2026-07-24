@@ -35,6 +35,11 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (await isIpBanned(bot.organizationId, ip)) return bad("ip_banned", 403);
   const ua = req.headers.get("user-agent");
   const geo = clientGeo(req); // { country, region, city } from Vercel headers
+  // Cap the body before it is parsed into memory. base64 inflates ~4/3, so allow
+  // the file budget plus slack for the message/JSON. Content-Length may be absent
+  // (chunked); the platform body limit backstops that case.
+  const maxBytes = bot.allowFileUpload ? Math.ceil(bot.maxFileSizeMb * 1024 * 1024 * 1.4) + 16 * 1024 : 64 * 1024;
+  if (Number(req.headers.get("content-length") || 0) > maxBytes) return bad("payload_too_large", 413);
 
   // Caller identity: API key (server-to-server, org-scoped) > org member (cookie
   // session) > anonymous bot-bound token (public bots only). Private bots are

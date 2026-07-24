@@ -133,6 +133,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ jsonrpc: "2.0", id, result });
   } catch (e) {
-    return NextResponse.json({ jsonrpc: "2.0", id, error: { code: -32000, message: e instanceof Error ? e.message : "error" } });
+    console.error("[mcp] tool error", e);
+    return NextResponse.json({ jsonrpc: "2.0", id, error: { code: -32000, message: "internal error" } });
   }
 }

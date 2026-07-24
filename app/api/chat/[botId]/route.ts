@@ -68,7 +68,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     [`chat:ip:${bot.id}:${clientIp(req)}`, bot.ratePerIp],
     [`chat:sid:${bot.id}:${sid}`, bot.ratePerSession],
   ] as const) {
-    const rl = rateLimit(key, limit, 60_000);
+    const rl = await rateLimit(key, limit, 60_000);
     if (!rl.ok) return bad("rate_limited", 429, { "Retry-After": String(rl.retryAfterSec) });
   }
 

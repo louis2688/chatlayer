@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   if (!originAllowed(req, bot.allowedOrigins ?? [])) return bad("origin_not_allowed", 403);
 
-  const rl = rateLimit(`session:${bot.id}:${clientIp(req)}`, 10, 60_000);
+  const rl = await rateLimit(`session:${bot.id}:${clientIp(req)}`, 10, 60_000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "rate_limited" },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clientIp, corsHeaders, originAllowed } from "@/lib/config";
+import { clientIp, clientGeo, corsHeaders, originAllowed } from "@/lib/config";
 import { rateLimit } from "@/lib/ratelimit";
 import { verifySession } from "@/lib/token";
 import { getBot, isOrgMember } from "@/lib/bots";
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const ip = clientIp(req);
   if (await isIpBanned(bot.organizationId, ip)) return bad("ip_banned", 403);
   const ua = req.headers.get("user-agent");
-  const country = req.headers.get("x-vercel-ip-country"); // Vercel geo header
+  const geo = clientGeo(req); // { country, region, city } from Vercel headers
 
   // Caller identity: API key (server-to-server, org-scoped) > org member (cookie
   // session) > anonymous bot-bound token (public bots only). Private bots are
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       }
       if (!full) push(FALLBACK);
       // Record session metadata only (ip, geo, parsed UA). Never store message text.
-      await recordSession(bot.id, sid, { ip, ua, country }).catch(() => {});
+      await recordSession(bot.id, sid, { ip, ua, ...geo }).catch(() => {});
       controller.close();
     },
   });

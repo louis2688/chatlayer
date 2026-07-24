@@ -170,7 +170,7 @@ Defense in depth, layer by layer:
 | Tenant isolation | Org checks on every read + server action | `app/(dash)/actions.ts`, routes |
 | Input validation | 4000-char message cap; Zod on all server actions | routes, actions |
 | Credit metering | 1 credit per message; 402 when drained | `lib/credits.ts` |
-| No message storage | Chat text is never persisted; only session metadata (ip, geo, UA) | `lib/store.ts` |
+| No message content | Message text is never persisted; only session metadata (ip, geo, UA, lead details in lead mode) | `lib/store.ts` |
 | IP ban | Org-scoped IP blocklist, rejected at the gateway before any work | `lib/ipbans.ts` |
 
 Two independent adversarial reviews were run during development; the confirmed
@@ -197,8 +197,9 @@ erDiagram
 - **org plugin**: `organization` (white-label fields + `credits`), `member`,
   `invitation`.
 - **app tables**: `bot` (webhook, branding, limits, widget options), `chatSession`
-  (one row per session -- ip, geo country, parsed browser/os/device, message
-  counter; **no message text**), `ipBan` (org-scoped IP blocklist), `apiKey`,
+  (one row per session -- ip, geo city/region/country, parsed browser/os/device,
+  a message counter, and in lead mode the visitor name/email/phone; **no message
+  text**), `ipBan` (org-scoped IP blocklist), `apiKey`,
   `creditTxn` (credit ledger).
 
 Schema lives in `lib/db/schema.ts`; the client (postgres.js, `prepare:false` for the
@@ -220,6 +221,7 @@ Neon pooler) in `lib/db/index.ts`. Push it with `npm run db:push`.
 - **Billing**: message credits (1 credit = 1 message), a packages page, and a ledger.
   Stripe-ready (`STRIPE_SECRET_KEY`); dev top-up otherwise.
 - **Analytics (metadata only)**: session/message counts, a 14-day chart, per-bot, and top browsers/countries (`lib/analytics.ts`), plus a recent-sessions table -- all from session metadata, never chat text.
+- **Sessions view** (`/sessions`): a live, polling list of visitor sessions -- active/expired on the 30-min rule, location, device, and lead details. Our own analytics, no message content.
 - **IP ban**: org-scoped IP blocklist (`lib/ipbans.ts`), managed on the Security page or straight from the analytics session list, enforced at the gateway.
 - **MCP server**: `/api/mcp` exposes list_bots, create_bot, update_bot, and
   get_analytics to Claude/Cursor, authenticated by an org API key.
@@ -236,7 +238,7 @@ app/
   page.tsx                     landing page (marketing + live demo)
   (auth)/login, signup         auth pages
   (dash)/                      dashboard (layout guards via requireContext)
-    dashboard, analytics, bots, billing, security, docs, settings
+    dashboard, analytics, sessions, bots, billing, security, docs, settings
     actions.ts                 server actions (all org-scoped, Zod-validated)
   widget/[botId]/              the embeddable chat page (iframe target)
   api/

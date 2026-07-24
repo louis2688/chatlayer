@@ -42,6 +42,17 @@ export function clientIp(req: NextRequest): string {
   return req.headers.get("x-real-ip")?.trim() || "unknown";
 }
 
+// City/region/country from Vercel's geo headers (present in production only).
+// Vercel URL-encodes the city, so decode it.
+export function clientGeo(req: NextRequest): { country: string | null; region: string | null; city: string | null } {
+  const dec = (v: string | null) => { if (!v) return null; try { return decodeURIComponent(v); } catch { return v; } };
+  return {
+    country: req.headers.get("x-vercel-ip-country"),
+    region: dec(req.headers.get("x-vercel-ip-country-region")),
+    city: dec(req.headers.get("x-vercel-ip-city")),
+  };
+}
+
 export function selfHost(req: NextRequest): string | null {
   return req.headers.get("x-forwarded-host") ?? req.headers.get("host");
 }

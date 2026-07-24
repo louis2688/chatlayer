@@ -338,7 +338,7 @@ plain text                     // raw token`}</code>
               <li>&bull; <span className={strong}>Origin allowlist</span> - only the domains you list can obtain a session.</li>
               <li>&bull; <span className={strong}>Input caps</span> - messages are limited to 4000 characters.</li>
               <li>&bull; <span className={strong}>Credits</span> - one credit per user message; the API returns <span className={code}>402</span> when a workspace runs out.</li>
-              <li>&bull; <span className={strong}>No message storage</span> - only per-session metadata is kept for analytics. Chat content is never written to the database.</li>
+              <li>&bull; <span className={strong}>No message content</span> - only per-session metadata is kept (ip, geo, device, and lead details in lead mode). Message text is never written to the database.</li>
             </ul>
           </Section>
         </div>

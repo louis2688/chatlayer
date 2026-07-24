@@ -151,9 +151,16 @@ export const chatSession = pgTable(
     sessionId: text("sessionId").notNull(),
     ip: text("ip"),
     country: text("country"),
+    region: text("region"),
+    city: text("city"),
     browser: text("browser"),
     os: text("os"),
     device: text("device"),
+    // Lead capture: stored on the session (not just forwarded to n8n) so the
+    // Sessions view can show who is chatting. Null on anonymous bots.
+    name: text("name"),
+    email: text("email"),
+    phone: text("phone"),
     messages: integer("messages").notNull().default(0),
     createdAt: ts("createdAt").notNull().$defaultFn(now),
     lastSeenAt: ts("lastSeenAt").notNull().$defaultFn(now),

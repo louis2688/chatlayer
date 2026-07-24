@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { corsHeaders, originAllowed, clientIp } from "@/lib/config";
+import { corsHeaders, originAllowed, clientIp, clientGeo } from "@/lib/config";
 import { rateLimit } from "@/lib/ratelimit";
 import { issueSession, verifySession } from "@/lib/token";
 import { getBot, type Bot } from "@/lib/bots";
 import { assertPublicHost } from "@/lib/ssrf";
 import { webhookAuthHeaders } from "@/lib/webhook-auth";
+import { recordLeadSession } from "@/lib/store";
 
 export const runtime = "nodejs";
 
@@ -86,6 +87,8 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const token = issueSession(bot.id);
   const sid = verifySession(token)?.sid ?? crypto.randomUUID();
+  // Persist the lead on the session (our analytics) and forward it to n8n.
+  await recordLeadSession(bot.id, sid, { ip: clientIp(req), ua: req.headers.get("user-agent"), ...clientGeo(req) }, lead).catch(() => {});
   await forwardLead(bot, sid, lead);
   return NextResponse.json({ token }, { headers: cors });
 }

@@ -98,9 +98,14 @@ export type SessionRow = {
   sessionId: string;
   ip: string | null;
   country: string | null;
+  region: string | null;
+  city: string | null;
   browser: string | null;
   os: string | null;
   device: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
   messages: number;
   lastSeenAt: Date;
   botName: string;
@@ -113,9 +118,14 @@ export async function recentSessions(orgId: string, limit = 50): Promise<Session
       sessionId: chatSession.sessionId,
       ip: chatSession.ip,
       country: chatSession.country,
+      region: chatSession.region,
+      city: chatSession.city,
       browser: chatSession.browser,
       os: chatSession.os,
       device: chatSession.device,
+      name: chatSession.name,
+      email: chatSession.email,
+      phone: chatSession.phone,
       messages: chatSession.messages,
       lastSeenAt: chatSession.lastSeenAt,
       botName: bot.name,
@@ -125,4 +135,16 @@ export async function recentSessions(orgId: string, limit = 50): Promise<Session
     .where(eq(bot.organizationId, orgId))
     .orderBy(desc(chatSession.lastSeenAt))
     .limit(limit);
+}
+
+// Sessions seen in the last N minutes -- the "active now" figure. A session is
+// considered expired 30 minutes after its last activity (derived, not stored).
+export async function activeSessionCount(orgId: string, minutes = 30): Promise<number> {
+  const since = new Date(Date.now() - minutes * 60_000);
+  const rows = await db
+    .select({ n: count() })
+    .from(chatSession)
+    .innerJoin(bot, eq(chatSession.botId, bot.id))
+    .where(and(eq(bot.organizationId, orgId), gte(chatSession.lastSeenAt, since)));
+  return rows[0]?.n ?? 0;
 }

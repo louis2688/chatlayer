@@ -44,8 +44,8 @@ create bots, view analytics, manage team + API keys in the dashboard.
 **V2 - SaaS**
 - Auth: email/password + optional Google SSO (better-auth), signed sessions
 - Multiple bots per workspace, each with its own webhook, branding, and limits
-- No message storage: only session metadata is kept (ip, geo, browser), never chat text
-- Analytics: sessions, messages, top browsers and countries, per-bot, recent sessions
+- No message content stored: only session metadata (ip, geo, browser, and lead details in lead mode), never chat text
+- Analytics: sessions, messages, top browsers/countries, per-bot; a live Sessions view (active/expired, location, device, lead details)
 - Access modes: anonymous chat, or lead capture (name/email/phone/message) forwarded to n8n as chat_started
 
 **Widget parity (matches n8nchatui.com)**
